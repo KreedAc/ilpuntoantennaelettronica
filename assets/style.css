@@ -113,11 +113,11 @@ nav.principale a[aria-current="page"] {
   border-bottom-color: var(--rosso);
 }
 
-/* ---------- Hero ---------- */
+/* ---------- Hero (versione chiara) ---------- */
 .hero {
-  background: linear-gradient(135deg, var(--blu) 0%, var(--blu-scuro) 70%);
-  color: var(--bianco);
-  padding: 4.5rem 0 4rem;
+  background: var(--bianco);
+  color: var(--grigio-testo);
+  padding: 3.5rem 0 3.8rem;
   text-align: left;
 }
 .hero h1 {
@@ -125,16 +125,21 @@ nav.principale a[aria-current="page"] {
   line-height: 1.2;
   margin-bottom: 1rem;
   max-width: 780px;
+  color: var(--blu);
 }
 .hero h1 em {
-  color: var(--rosso-chiaro);
+  color: var(--rosso);
   font-style: normal;
 }
 .hero p.sottotitolo {
   font-size: 1.15rem;
-  color: #d9dcf5;
+  color: var(--grigio-testo);
   max-width: 680px;
   margin-bottom: 2rem;
+}
+.hero .bottone.contorno {
+  border-color: var(--blu);
+  color: var(--blu);
 }
 .hero .azioni { display: flex; gap: 1rem; flex-wrap: wrap; align-items: center; }
 
