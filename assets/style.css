@@ -136,7 +136,7 @@ nav.principale a[aria-current="page"] {
   max-width: 680px;
   margin-bottom: 2rem;
 }
-.hero .azioni { display: flex; gap: 1rem; flex-wrap: wrap; }
+.hero .azioni { display: flex; gap: 1rem; flex-wrap: wrap; align-items: center; }
 
 .bottone {
   display: inline-block;
@@ -154,6 +154,21 @@ nav.principale a[aria-current="page"] {
   border: 2px solid #ffffff;
   color: var(--bianco);
 }
+.colonna-cta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+}
+.colonna-cta .bottone { text-align: center; }
+.bottone.whatsapp {
+  background: #25d366;
+  color: #ffffff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+.bottone.whatsapp:hover { background: #1ebe5b; }
 
 /* ---------- Sezioni ---------- */
 section { padding: 3.5rem 0; }
