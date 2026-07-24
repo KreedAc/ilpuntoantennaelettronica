@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://www.ilpuntoantennaelettronica.it/sitemap.xml

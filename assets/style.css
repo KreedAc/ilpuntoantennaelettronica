@@ -1,0 +1,319 @@
+/* Il Punto Antenna Elettronica — foglio di stile principale */
+
+:root {
+  --blu: #0b3c6e;
+  --blu-scuro: #072a4e;
+  --arancio: #f28c1b;
+  --arancio-scuro: #d97706;
+  --grigio-chiaro: #f4f6f9;
+  --grigio-testo: #3d4852;
+  --bianco: #ffffff;
+  --radius: 12px;
+  --ombra: 0 4px 18px rgba(7, 42, 78, 0.10);
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: "Segoe UI", system-ui, -apple-system, Roboto, "Helvetica Neue", Arial, sans-serif;
+  color: var(--grigio-testo);
+  line-height: 1.65;
+  background: var(--bianco);
+}
+
+img { max-width: 100%; height: auto; }
+
+.container {
+  width: min(1100px, 92%);
+  margin: 0 auto;
+}
+
+/* ---------- Header ---------- */
+.topbar {
+  background: var(--blu-scuro);
+  color: #cfe0f2;
+  font-size: 0.9rem;
+  padding: 0.4rem 0;
+}
+.topbar .container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.5rem;
+  justify-content: space-between;
+}
+.topbar a { color: #ffffff; text-decoration: none; font-weight: 600; }
+.topbar a:hover { text-decoration: underline; }
+
+header.sito {
+  background: var(--blu);
+  color: var(--bianco);
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  box-shadow: var(--ombra);
+}
+header.sito .container {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.7rem 0;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  text-decoration: none;
+  color: var(--bianco);
+}
+.logo svg { flex-shrink: 0; }
+.logo .nome {
+  font-size: 1.15rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+.logo .nome small {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 400;
+  color: #bcd4ea;
+  letter-spacing: 0.04em;
+}
+
+nav.principale ul {
+  display: flex;
+  gap: 1.4rem;
+  list-style: none;
+  flex-wrap: wrap;
+}
+nav.principale a {
+  color: var(--bianco);
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 0.95rem;
+  padding: 0.3rem 0;
+  border-bottom: 2px solid transparent;
+}
+nav.principale a:hover,
+nav.principale a[aria-current="page"] {
+  border-bottom-color: var(--arancio);
+}
+
+/* ---------- Hero ---------- */
+.hero {
+  background: linear-gradient(135deg, var(--blu) 0%, var(--blu-scuro) 70%);
+  color: var(--bianco);
+  padding: 4.5rem 0 4rem;
+  text-align: left;
+}
+.hero h1 {
+  font-size: clamp(1.8rem, 4vw, 2.8rem);
+  line-height: 1.2;
+  margin-bottom: 1rem;
+  max-width: 780px;
+}
+.hero h1 em {
+  color: var(--arancio);
+  font-style: normal;
+}
+.hero p.sottotitolo {
+  font-size: 1.15rem;
+  color: #d6e4f3;
+  max-width: 680px;
+  margin-bottom: 2rem;
+}
+.hero .azioni { display: flex; gap: 1rem; flex-wrap: wrap; }
+
+.bottone {
+  display: inline-block;
+  padding: 0.85rem 1.7rem;
+  border-radius: 999px;
+  font-weight: 700;
+  text-decoration: none;
+  font-size: 1rem;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.bottone:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(0,0,0,0.25); }
+.bottone.pieno { background: var(--arancio); color: #1c1102; }
+.bottone.contorno {
+  border: 2px solid #ffffff;
+  color: var(--bianco);
+}
+
+/* ---------- Sezioni ---------- */
+section { padding: 3.5rem 0; }
+section.alternata { background: var(--grigio-chiaro); }
+
+.titolo-sezione {
+  text-align: center;
+  margin-bottom: 2.5rem;
+}
+.titolo-sezione h2 {
+  color: var(--blu);
+  font-size: clamp(1.5rem, 3vw, 2.1rem);
+  margin-bottom: 0.5rem;
+}
+.titolo-sezione p { max-width: 640px; margin: 0 auto; }
+
+.griglia {
+  display: grid;
+  gap: 1.5rem;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+}
+
+.scheda {
+  background: var(--bianco);
+  border-radius: var(--radius);
+  padding: 1.8rem 1.5rem;
+  box-shadow: var(--ombra);
+  border-top: 4px solid var(--arancio);
+}
+.scheda h3 { color: var(--blu); margin-bottom: 0.6rem; font-size: 1.15rem; }
+.scheda .icona {
+  width: 48px;
+  height: 48px;
+  margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(242, 140, 27, 0.14);
+  border-radius: 10px;
+}
+.scheda a.link-scheda {
+  display: inline-block;
+  margin-top: 0.8rem;
+  color: var(--arancio-scuro);
+  font-weight: 700;
+  text-decoration: none;
+}
+.scheda a.link-scheda:hover { text-decoration: underline; }
+
+/* ---------- Elenco vantaggi ---------- */
+ul.vantaggi {
+  list-style: none;
+  display: grid;
+  gap: 0.9rem;
+  max-width: 720px;
+  margin: 0 auto;
+}
+ul.vantaggi li {
+  padding-left: 2.2rem;
+  position: relative;
+}
+ul.vantaggi li::before {
+  content: "✓";
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 1.5rem;
+  height: 1.5rem;
+  background: var(--arancio);
+  color: #1c1102;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.85rem;
+}
+
+/* ---------- Banda contatto ---------- */
+.banda-cta {
+  background: var(--arancio);
+  color: #1c1102;
+  text-align: center;
+  padding: 2.8rem 0;
+}
+.banda-cta h2 { font-size: clamp(1.4rem, 3vw, 1.9rem); margin-bottom: 0.6rem; }
+.banda-cta p { margin-bottom: 1.4rem; font-size: 1.05rem; }
+.banda-cta .bottone.pieno { background: var(--blu); color: var(--bianco); }
+
+/* ---------- Contatti ---------- */
+.contatti-griglia {
+  display: grid;
+  gap: 2rem;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  align-items: start;
+}
+.blocco-contatto {
+  background: var(--bianco);
+  border-radius: var(--radius);
+  box-shadow: var(--ombra);
+  padding: 2rem 1.7rem;
+}
+.blocco-contatto h3 { color: var(--blu); margin-bottom: 1rem; }
+.blocco-contatto p + p { margin-top: 0.7rem; }
+.blocco-contatto a { color: var(--arancio-scuro); font-weight: 700; text-decoration: none; }
+.blocco-contatto a:hover { text-decoration: underline; }
+.mappa {
+  border: 0;
+  width: 100%;
+  height: 380px;
+  border-radius: var(--radius);
+  box-shadow: var(--ombra);
+}
+
+/* ---------- Testo articolo (landing) ---------- */
+.articolo { max-width: 780px; margin: 0 auto; }
+.articolo h2 { color: var(--blu); margin: 2.2rem 0 0.8rem; font-size: 1.45rem; }
+.articolo h3 { color: var(--blu); margin: 1.6rem 0 0.6rem; font-size: 1.15rem; }
+.articolo p + p { margin-top: 0.9rem; }
+.articolo ul { margin: 0.9rem 0 0.9rem 1.4rem; }
+.articolo li + li { margin-top: 0.35rem; }
+.briciole {
+  font-size: 0.88rem;
+  margin: 1.2rem auto 0;
+  max-width: 780px;
+}
+.briciole a { color: var(--arancio-scuro); text-decoration: none; }
+.briciole a:hover { text-decoration: underline; }
+
+/* ---------- FAQ ---------- */
+details.faq {
+  background: var(--bianco);
+  border-radius: var(--radius);
+  box-shadow: var(--ombra);
+  margin-bottom: 0.9rem;
+  padding: 1rem 1.3rem;
+}
+details.faq summary {
+  font-weight: 700;
+  color: var(--blu);
+  cursor: pointer;
+}
+details.faq p { margin-top: 0.7rem; }
+
+/* ---------- Footer ---------- */
+footer.sito {
+  background: var(--blu-scuro);
+  color: #b9cede;
+  padding: 3rem 0 1.5rem;
+  font-size: 0.95rem;
+}
+footer.sito .colonne {
+  display: grid;
+  gap: 2rem;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  margin-bottom: 2rem;
+}
+footer.sito h4 { color: var(--bianco); margin-bottom: 0.8rem; }
+footer.sito a { color: #e8f1f9; text-decoration: none; }
+footer.sito a:hover { text-decoration: underline; }
+footer.sito ul { list-style: none; }
+footer.sito li + li { margin-top: 0.4rem; }
+.footer-legale {
+  border-top: 1px solid rgba(255,255,255,0.15);
+  padding-top: 1.2rem;
+  text-align: center;
+  font-size: 0.85rem;
+}
+
+@media (max-width: 640px) {
+  header.sito .container { justify-content: center; text-align: center; }
+  nav.principale ul { justify-content: center; gap: 1rem; }
+  .hero { padding: 3rem 0 2.6rem; text-align: center; }
+  .hero .azioni { justify-content: center; }
+}
