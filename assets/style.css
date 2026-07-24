@@ -189,11 +189,11 @@ nav.principale a[aria-current="page"] {
 .bottone svg { flex-shrink: 0; }
 .bottone:hover { transform: translateY(-1px); }
 .bottone.pieno {
-  background: var(--rosso);
-  color: var(--bianco);
-  box-shadow: 0 4px 14px rgba(237, 28, 36, 0.28);
+  background: var(--bianco);
+  color: var(--rosso);
+  border: 1.5px solid var(--grigio-bordo);
 }
-.bottone.pieno:hover { background: var(--rosso-scuro); box-shadow: 0 8px 20px rgba(237, 28, 36, 0.34); }
+.bottone.pieno:hover { border-color: var(--rosso); background: #fffafa; }
 .bottone.contorno {
   border: 1.5px solid var(--grigio-bordo);
   color: var(--blu);
@@ -206,11 +206,11 @@ nav.principale a[aria-current="page"] {
   gap: 0.7rem;
 }
 .bottone.whatsapp {
-  background: #25d366;
-  color: #ffffff;
-  box-shadow: 0 4px 14px rgba(37, 211, 102, 0.28);
+  background: var(--bianco);
+  color: #128c3e;
+  border: 1.5px solid var(--grigio-bordo);
 }
-.bottone.whatsapp:hover { background: #1ebe5b; box-shadow: 0 8px 20px rgba(37, 211, 102, 0.34); }
+.bottone.whatsapp:hover { border-color: #25d366; background: #f8fffb; }
 
 /* ---------- Sezioni ---------- */
 section { padding: 4rem 0; }
