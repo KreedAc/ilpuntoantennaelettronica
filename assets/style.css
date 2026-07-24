@@ -133,10 +133,13 @@ nav.principale a[aria-current="page"] {
   max-width: 900px;
   color: var(--blu);
   font-weight: 800;
+  text-wrap: balance;
 }
 .hero h1 em {
   color: var(--rosso);
   font-style: normal;
+  /* "Lamezia Terme" non si spezza mai su due righe */
+  white-space: nowrap;
 }
 .hero p.sottotitolo {
   font-size: clamp(1.02rem, 1.6vw, 1.18rem);
