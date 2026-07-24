@@ -72,7 +72,7 @@ header.sito .container {
   text-decoration: none;
   color: var(--blu);
 }
-.logo svg { flex-shrink: 0; }
+.logo img { flex-shrink: 0; }
 .logo .nome {
   font-family: Georgia, "Times New Roman", serif;
   font-size: 1.3rem;
@@ -80,7 +80,8 @@ header.sito .container {
   line-height: 1.2;
 }
 .logo .nome small {
-  display: inline-block;
+  display: block;
+  text-align: center;
   font-family: "Segoe UI", system-ui, sans-serif;
   font-size: 0.68rem;
   font-weight: 700;

@@ -5,6 +5,7 @@
   publish = "."
 
 # Sicurezza di base (aiutano anche il punteggio qualità del sito)
+# Cache disattivata: ogni modifica pubblicata è visibile all'istante.
 [[headers]]
   for = "/*"
   [headers.values]
@@ -12,9 +13,4 @@
     X-Content-Type-Options = "nosniff"
     Referrer-Policy = "strict-origin-when-cross-origin"
     Permissions-Policy = "camera=(), microphone=(), geolocation=()"
-
-# Cache lunga per il CSS (cambia raramente)
-[[headers]]
-  for = "/assets/*"
-  [headers.values]
-    Cache-Control = "public, max-age=604800"
+    Cache-Control = "public, max-age=0, must-revalidate"
