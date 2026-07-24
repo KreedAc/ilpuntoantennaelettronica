@@ -1,15 +1,17 @@
-/* Il Punto Antenna Elettronica — foglio di stile principale */
+/* Il Punto Antenna Elettronica — foglio di stile principale
+   Palette ricavata dal logo: blu navy #232388, rosso #e30613, bianco. */
 
 :root {
-  --blu: #0b3c6e;
-  --blu-scuro: #072a4e;
-  --arancio: #f28c1b;
-  --arancio-scuro: #d97706;
-  --grigio-chiaro: #f4f6f9;
+  --blu: #232388;
+  --blu-scuro: #14145e;
+  --rosso: #e30613;
+  --rosso-scuro: #b8050f;
+  --rosso-chiaro: #ff5964; /* per accenti su fondo scuro */
+  --grigio-chiaro: #f4f5f9;
   --grigio-testo: #3d4852;
   --bianco: #ffffff;
   --radius: 12px;
-  --ombra: 0 4px 18px rgba(7, 42, 78, 0.10);
+  --ombra: 0 4px 18px rgba(20, 20, 94, 0.10);
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -33,7 +35,7 @@ img { max-width: 100%; height: auto; }
 /* ---------- Header ---------- */
 .topbar {
   background: var(--blu-scuro);
-  color: #cfe0f2;
+  color: #cdd2f0;
   font-size: 0.9rem;
   padding: 0.4rem 0;
 }
@@ -47,12 +49,13 @@ img { max-width: 100%; height: auto; }
 .topbar a:hover { text-decoration: underline; }
 
 header.sito {
-  background: var(--blu);
-  color: var(--bianco);
+  background: var(--bianco);
+  color: var(--blu);
   position: sticky;
   top: 0;
   z-index: 50;
   box-shadow: var(--ombra);
+  border-bottom: 3px solid var(--rosso);
 }
 header.sito .container {
   display: flex;
@@ -67,20 +70,27 @@ header.sito .container {
   align-items: center;
   gap: 0.6rem;
   text-decoration: none;
-  color: var(--bianco);
+  color: var(--blu);
 }
 .logo svg { flex-shrink: 0; }
 .logo .nome {
-  font-size: 1.15rem;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1.3rem;
   font-weight: 700;
   line-height: 1.2;
 }
 .logo .nome small {
-  display: block;
-  font-size: 0.72rem;
-  font-weight: 400;
-  color: #bcd4ea;
-  letter-spacing: 0.04em;
+  display: inline-block;
+  font-family: "Segoe UI", system-ui, sans-serif;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--bianco);
+  background: var(--rosso);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 0.1rem 0.55rem;
+  border-radius: 3px;
+  margin-top: 0.15rem;
 }
 
 nav.principale ul {
@@ -90,16 +100,16 @@ nav.principale ul {
   flex-wrap: wrap;
 }
 nav.principale a {
-  color: var(--bianco);
+  color: var(--blu);
   text-decoration: none;
-  font-weight: 600;
+  font-weight: 700;
   font-size: 0.95rem;
   padding: 0.3rem 0;
   border-bottom: 2px solid transparent;
 }
 nav.principale a:hover,
 nav.principale a[aria-current="page"] {
-  border-bottom-color: var(--arancio);
+  border-bottom-color: var(--rosso);
 }
 
 /* ---------- Hero ---------- */
@@ -116,12 +126,12 @@ nav.principale a[aria-current="page"] {
   max-width: 780px;
 }
 .hero h1 em {
-  color: var(--arancio);
+  color: var(--rosso-chiaro);
   font-style: normal;
 }
 .hero p.sottotitolo {
   font-size: 1.15rem;
-  color: #d6e4f3;
+  color: #d9dcf5;
   max-width: 680px;
   margin-bottom: 2rem;
 }
@@ -137,7 +147,8 @@ nav.principale a[aria-current="page"] {
   transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 .bottone:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(0,0,0,0.25); }
-.bottone.pieno { background: var(--arancio); color: #1c1102; }
+.bottone.pieno { background: var(--rosso); color: var(--bianco); }
+.bottone.pieno:hover { background: var(--rosso-scuro); }
 .bottone.contorno {
   border: 2px solid #ffffff;
   color: var(--bianco);
@@ -169,7 +180,7 @@ section.alternata { background: var(--grigio-chiaro); }
   border-radius: var(--radius);
   padding: 1.8rem 1.5rem;
   box-shadow: var(--ombra);
-  border-top: 4px solid var(--arancio);
+  border-top: 4px solid var(--rosso);
 }
 .scheda h3 { color: var(--blu); margin-bottom: 0.6rem; font-size: 1.15rem; }
 .scheda .icona {
@@ -179,13 +190,13 @@ section.alternata { background: var(--grigio-chiaro); }
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(242, 140, 27, 0.14);
+  background: rgba(227, 6, 19, 0.08);
   border-radius: 10px;
 }
 .scheda a.link-scheda {
   display: inline-block;
   margin-top: 0.8rem;
-  color: var(--arancio-scuro);
+  color: var(--rosso-scuro);
   font-weight: 700;
   text-decoration: none;
 }
@@ -210,8 +221,8 @@ ul.vantaggi li::before {
   top: 0;
   width: 1.5rem;
   height: 1.5rem;
-  background: var(--arancio);
-  color: #1c1102;
+  background: var(--rosso);
+  color: var(--bianco);
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -222,14 +233,15 @@ ul.vantaggi li::before {
 
 /* ---------- Banda contatto ---------- */
 .banda-cta {
-  background: var(--arancio);
-  color: #1c1102;
+  background: var(--rosso);
+  color: var(--bianco);
   text-align: center;
   padding: 2.8rem 0;
 }
 .banda-cta h2 { font-size: clamp(1.4rem, 3vw, 1.9rem); margin-bottom: 0.6rem; }
 .banda-cta p { margin-bottom: 1.4rem; font-size: 1.05rem; }
-.banda-cta .bottone.pieno { background: var(--blu); color: var(--bianco); }
+.banda-cta .bottone.pieno { background: var(--bianco); color: var(--rosso-scuro); }
+.banda-cta .bottone.pieno:hover { background: #f3f3f3; }
 
 /* ---------- Contatti ---------- */
 .contatti-griglia {
@@ -243,10 +255,11 @@ ul.vantaggi li::before {
   border-radius: var(--radius);
   box-shadow: var(--ombra);
   padding: 2rem 1.7rem;
+  border-top: 4px solid var(--rosso);
 }
 .blocco-contatto h3 { color: var(--blu); margin-bottom: 1rem; }
 .blocco-contatto p + p { margin-top: 0.7rem; }
-.blocco-contatto a { color: var(--arancio-scuro); font-weight: 700; text-decoration: none; }
+.blocco-contatto a { color: var(--rosso-scuro); font-weight: 700; text-decoration: none; }
 .blocco-contatto a:hover { text-decoration: underline; }
 .mappa {
   border: 0;
@@ -263,12 +276,13 @@ ul.vantaggi li::before {
 .articolo p + p { margin-top: 0.9rem; }
 .articolo ul { margin: 0.9rem 0 0.9rem 1.4rem; }
 .articolo li + li { margin-top: 0.35rem; }
+.articolo a { color: var(--rosso-scuro); }
 .briciole {
   font-size: 0.88rem;
   margin: 1.2rem auto 0;
   max-width: 780px;
 }
-.briciole a { color: var(--arancio-scuro); text-decoration: none; }
+.briciole a { color: var(--rosso-scuro); text-decoration: none; }
 .briciole a:hover { text-decoration: underline; }
 
 /* ---------- FAQ ---------- */
@@ -289,9 +303,10 @@ details.faq p { margin-top: 0.7rem; }
 /* ---------- Footer ---------- */
 footer.sito {
   background: var(--blu-scuro);
-  color: #b9cede;
+  color: #c3c8ea;
   padding: 3rem 0 1.5rem;
   font-size: 0.95rem;
+  border-top: 4px solid var(--rosso);
 }
 footer.sito .colonne {
   display: grid;
@@ -300,7 +315,7 @@ footer.sito .colonne {
   margin-bottom: 2rem;
 }
 footer.sito h4 { color: var(--bianco); margin-bottom: 0.8rem; }
-footer.sito a { color: #e8f1f9; text-decoration: none; }
+footer.sito a { color: #eef0fb; text-decoration: none; }
 footer.sito a:hover { text-decoration: underline; }
 footer.sito ul { list-style: none; }
 footer.sito li + li { margin-top: 0.4rem; }
