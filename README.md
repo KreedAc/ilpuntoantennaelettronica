@@ -1,6 +1,6 @@
 # Il Punto Antenna Elettronica – Sito web
 
-Sito vetrina statico, ottimizzato per la SEO locale, per **Il Punto Antenna Elettronica di Rumoro Tiziana** – Via Perugini 13, 88046 Lamezia Terme (CZ).
+Sito vetrina statico, ottimizzato per la SEO locale, per **Il Punto Antenna Elettronica di Rumoro Tiziana** – Corso Eroi di Sapri 32, 88046 Lamezia Terme (CZ).
 
 ## Struttura
 
@@ -19,7 +19,7 @@ Il sito è HTML/CSS puro: niente build, niente framework. Si può pubblicare su 
 ## ⚠️ Da verificare / completare prima della pubblicazione
 
 1. **Dominio**: le URL canoniche, la sitemap e il robots.txt usano il segnaposto `https://www.ilpuntoantennaelettronica.it/`. Quando il dominio definitivo è deciso, sostituirlo in **tutti** i file (cerca e sostituisci).
-2. **Orari di apertura**: non ho trovato orari verificati online, quindi il sito invita a chiamare. Appena confermati dalla titolare, aggiungerli in `contatti.html` e nel JSON-LD di `index.html` (proprietà `openingHoursSpecification`).
+2. **Dati verificati dalla scheda Google Business** (luglio 2026): indirizzo Corso Eroi di Sapri 32, tel. 380 283 0773, orari Lun–Ven 9–12:30 / 16:30–19, sab/dom chiusi. Se cambiano, aggiornare pagine HTML e `openingHoursSpecification` nel JSON-LD di `index.html`.
 3. **Servizi**: l'elenco dei servizi/prodotti è basato sulla tipologia di attività (antennista + negozio elettronica). Far confermare alla titolare e aggiustare se serve (es. videosorveglianza, riparazioni particolari…).
 4. **Foto reali**: aggiungere foto del negozio e dei lavori (rinominarle con nomi descrittivi, es. `negozio-elettronica-lamezia-terme.jpg`, e aggiungere attributi `alt`). Le foto reali aiutano molto la SEO locale.
 5. **Email**: se l'attività ha un indirizzo email, aggiungerlo in `contatti.html` e nel JSON-LD.
