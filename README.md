@@ -2,48 +2,68 @@
 
 Sito vetrina statico, ottimizzato per la SEO locale, per **Il Punto Antenna Elettronica di Rumoro Tiziana** – Corso Eroi di Sapri 32, 88046 Lamezia Terme (CZ).
 
+🌐 Online su **https://ilpuntoantennaelettronica.netlify.app/**
+
 ## Struttura
 
 | File | Scopo |
 |---|---|
-| `index.html` | Home page – parola chiave: "antennista e negozio di elettronica a Lamezia Terme" |
+| `index.html` | Home page – "antennista e negozio di elettronica a Lamezia Terme" |
 | `antennista-lamezia-terme.html` | Landing SEO – "antennista Lamezia Terme" (con FAQ e dati strutturati FAQPage) |
-| `negozio-elettronica-lamezia-terme.html` | Landing SEO – "negozio elettronica Lamezia Terme" |
+| `telefonia-internet-lamezia-terme.html` | Landing SEO – Sky, Sky WiFi, internet casa, telefonia mobile, ricariche |
+| `luce-gas-lamezia-terme.html` | Landing SEO – consulenza e attivazione contratti luce e gas |
+| `videosorveglianza-lamezia-terme.html` | Landing SEO – videosorveglianza e sistemi di allarme |
+| `negozio-elettronica-lamezia-terme.html` | Landing SEO – "negozio elettronica Lamezia Terme" (catalogo per categorie) |
 | `contatti.html` | Contatti, mappa Google e indicazioni |
 | `sitemap.xml`, `robots.txt` | File tecnici per i motori di ricerca |
-| `404.html` | Pagina di errore (usata automaticamente da GitHub Pages) |
+| `404.html` | Pagina di errore (usata automaticamente da Netlify) |
 | `assets/style.css` | Foglio di stile unico, nessuna dipendenza esterna |
+| `assets/logo.png` | Logo originale dell'insegna |
+| `materiali/` | QR recensioni Google + cartellino A6 pronto da stampare |
 
-Il sito è HTML/CSS puro: niente build, niente framework. Si può pubblicare su GitHub Pages, Netlify o qualunque hosting statico.
+Il sito è HTML/CSS puro: niente build, niente framework, nessuna dipendenza esterna.
 
-## ⚠️ Da verificare / completare prima della pubblicazione
+**Nota sulla cache**: `netlify.toml` imposta `Cache-Control: max-age=0`, così ogni modifica pubblicata è visibile all'istante. Il CSS è linkato con un parametro di versione (`style.css?v=3`): **incrementarlo a ogni modifica importante dello stile**, per forzare l'aggiornamento sui browser dei visitatori.
 
-1. **Dominio**: il sito è pubblicato su `https://ilpuntoantennaelettronica.netlify.app/` e tutte le URL (canoniche, sitemap, robots.txt, og:image, JSON-LD) puntano lì. Quando si acquisterà il dominio proprio, sostituire `https://ilpuntoantennaelettronica.netlify.app` con il nuovo dominio in **tutti** i file (cerca e sostituisci) e aggiornare la scheda Google Business e Search Console.
-2. **Dati verificati dalla scheda Google Business** (luglio 2026): indirizzo Corso Eroi di Sapri 32, tel. 380 283 0773, orari Lun–Ven 9–12:30 / 16:30–19, sab/dom chiusi. Se cambiano, aggiornare pagine HTML e `openingHoursSpecification` nel JSON-LD di `index.html`.
-3. **Servizi**: l'elenco dei servizi/prodotti è basato sulla tipologia di attività (antennista + negozio elettronica). Far confermare alla titolare e aggiustare se serve (es. videosorveglianza, riparazioni particolari…).
-4. **Foto reali**: aggiungere foto del negozio e dei lavori (rinominarle con nomi descrittivi, es. `negozio-elettronica-lamezia-terme.jpg`, e aggiungere attributi `alt`). Le foto reali aiutano molto la SEO locale.
-5. **Email**: se l'attività ha un indirizzo email, aggiungerlo in `contatti.html` e nel JSON-LD.
+## Dati dell'attività (verificati sulla scheda Google Business, luglio 2026)
 
-## Checklist SEO locale (per arrivare in prima pagina su "Lamezia Terme")
+- Indirizzo: Corso Eroi di Sapri, 32 – 88046 Lamezia Terme (CZ)
+- Telefono / WhatsApp: 380 283 0773
+- Orari: Lun–Ven 9:00–12:30 e 16:30–19:00 · sabato e domenica chiusi
+- Coordinate: 38.9638, 16.2839
 
-Il sito da solo non basta: per le ricerche locali il fattore n.1 è la **scheda Google Business Profile**.
+Se cambiano, aggiornare le pagine HTML **e** il JSON-LD in `index.html` (`openingHoursSpecification`, `geo`, `telephone`).
 
-- [ ] **Google Business Profile**: rivendicare/aggiornare la scheda su [business.google.com](https://business.google.com) con nome, indirizzo, telefono **identici** a quelli del sito (NAP consistency), categoria "Antennista" + "Negozio di elettronica", orari, foto e collegamento al sito.
-- [ ] **Recensioni Google**: chiedere ai clienti soddisfatti di lasciare una recensione: è il singolo fattore che più muove il posizionamento nel "local pack" (la mappa nei risultati).
-- [ ] **Google Search Console**: registrare il sito, inviare `sitemap.xml`, verificare l'indicizzazione.
-- [ ] **Directory locali**: verificare/uniformare i dati su PagineGialle, PagineBianche, Virgilio, Yelp – stesso nome, indirizzo e telefono ovunque.
-- [ ] **Dominio proprio**: un dominio tipo `ilpuntoantennaelettronica.it` è più efficace di un sottodominio gratuito.
-- [ ] Aggiungere col tempo contenuti utili (es. "come risintonizzare i canali", "cosa fare se il segnale TV squadretta"): portano traffico da ricerche correlate.
+## Checklist SEO locale
 
-## Pubblicazione su Netlify (consigliata)
+### ✅ Fatto
 
-Il repo include già `netlify.toml` (header di sicurezza + cache del CSS). Per pubblicare:
+- [x] **Sito online** su Netlify, mobile-friendly, HTTPS, veloce
+- [x] **Struttura per parole chiave locali**: 5 landing dedicate + home + contatti
+- [x] **Dati strutturati JSON-LD**: LocalBusiness/ElectronicsStore (indirizzo, orari, geo, servizi, logo), FAQPage, BreadcrumbList, Service
+- [x] **Sitemap, robots.txt, canonical, Open Graph** su tutte le pagine
+- [x] **Google Search Console**: proprietà verificata (meta tag in `index.html`) e sitemap inviata
+- [x] **Google Business Profile**: sito collegato alla scheda
+- [x] **QR recensioni** + cartellino stampabile in `materiali/`
 
-1. Su [app.netlify.com](https://app.netlify.com) → **Add new site → Import an existing project** → collega questo repository GitHub.
-2. Build command: *(vuoto)* – Publish directory: `.` (già impostati dal `netlify.toml`).
-3. Il sito va online su `https://<nome>.netlify.app`. La pagina `404.html` viene usata automaticamente.
-4. **Dominio personalizzato**: Site settings → Domain management → aggiungi il dominio (es. `ilpuntoantennaelettronica.it`), Netlify configura HTTPS da solo. Poi aggiorna le URL canoniche in tutti i file HTML, `sitemap.xml` e `robots.txt`.
+### ⏳ Da fare
 
-### In alternativa: GitHub Pages
+- [ ] **Recensioni Google**: chiedere sempre a fine lavoro, con il QR in negozio. È il fattore n.1 del "local pack". ⚠️ Mai suggerire testi ai clienti né far scrivere recensioni a chi non è cliente: Google le rileva e rimuove, ed è vietato per legge (pratica commerciale ingannevole). Il canale legittimo per inserire le parole chiave è **rispondere** alle recensioni dal profilo dell'attività.
+- [ ] **Foto reali** del negozio e dei lavori: aggiungerle al sito (nomi file descrittivi + attributo `alt`) e alla scheda Google.
+- [ ] **Bonifica directory**: la scheda su PagineBianche riporta ancora il vecchio indirizzo (Via Perugini) e il fisso. Correggere o rimuovere tramite Italiaonline: dati discordanti confondono Google (NAP consistency).
+- [ ] **Dominio proprio** (~10-15 €/anno): più efficace del sottodominio `.netlify.app`. Vedi procedura sotto.
+- [ ] **Email**: se l'attività ne ha una, aggiungerla in `contatti.html` e nel JSON-LD.
+- [ ] **`sameAs` nel JSON-LD**: aggiungere i link ai profili social (Facebook/Instagram) se esistono.
+- [ ] *(opzionale)* Contenuti utili nel tempo: "come risintonizzare i canali", "cosa fare se il segnale TV squadretta" — portano traffico da ricerche correlate.
+- [ ] *(opzionale)* Tag NFC da banco con il link recensioni: `https://g.page/r/CQoOih4xjnXMEBM/review`
 
-Settings → Pages → Deploy from a branch → branch `main`, cartella `/ (root)`.
+## Pubblicazione e dominio
+
+Il sito è collegato a Netlify: **ogni push sul branch pubblica automaticamente**.
+
+Per passare a un dominio proprio:
+
+1. Acquistare il dominio (es. `ilpuntoantennaelettronica.it`).
+2. Netlify → Site settings → Domain management → Add domain, poi impostare i record DNS indicati (HTTPS è automatico).
+3. Sostituire `https://ilpuntoantennaelettronica.netlify.app` con il nuovo dominio in **tutti** i file HTML, `sitemap.xml` e `robots.txt`.
+4. Aggiornare il link sulla scheda Google Business e creare la nuova proprietà su Search Console (Netlify mantiene un redirect 301 dal vecchio indirizzo, quindi il lavoro di indicizzazione non si perde).
