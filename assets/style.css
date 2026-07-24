@@ -248,11 +248,25 @@ section.alternata { background: var(--grigio-chiaro); }
   transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
   display: flex;
   flex-direction: column;
+  position: relative;
 }
 .scheda:hover {
   transform: translateY(-3px);
   box-shadow: var(--ombra-alta);
   border-color: #cfd4e6;
+}
+/* tutta la scheda è cliccabile, ma resta un solo link */
+.scheda:has(a.link-scheda) { cursor: pointer; }
+.scheda a.link-scheda::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: var(--radius);
+}
+.scheda:hover a.link-scheda { gap: 0.6rem; }
+.scheda:focus-within {
+  border-color: var(--blu);
+  box-shadow: 0 0 0 3px rgba(46, 49, 146, 0.15);
 }
 .scheda h3 {
   color: var(--blu);
