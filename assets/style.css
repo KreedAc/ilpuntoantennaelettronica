@@ -1,17 +1,17 @@
 /* Il Punto Antenna Elettronica — foglio di stile principale
-   Palette ricavata dal logo: blu navy #232388, rosso #e30613, bianco. */
+   Palette ricavata dal logo: blu navy #2e3192, rosso #ed1c24, bianco. */
 
 :root {
-  --blu: #232388;
-  --blu-scuro: #14145e;
-  --rosso: #e30613;
-  --rosso-scuro: #b8050f;
-  --rosso-chiaro: #ff5964; /* per accenti su fondo scuro */
+  --blu: #2e3192;
+  --blu-scuro: #1b1d63;
+  --rosso: #ed1c24;
+  --rosso-scuro: #c1121a;
+  --rosso-chiaro: #ff6b70; /* per accenti su fondo scuro */
   --grigio-chiaro: #f4f5f9;
   --grigio-testo: #3d4852;
   --bianco: #ffffff;
   --radius: 12px;
-  --ombra: 0 4px 18px rgba(20, 20, 94, 0.10);
+  --ombra: 0 4px 18px rgba(27, 29, 99, 0.10);
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -190,7 +190,7 @@ section.alternata { background: var(--grigio-chiaro); }
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(227, 6, 19, 0.08);
+  background: rgba(237, 28, 36, 0.08);
   border-radius: 10px;
 }
 .scheda a.link-scheda {

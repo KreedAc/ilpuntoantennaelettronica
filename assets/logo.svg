@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 680 110" role="img" aria-label="Il Punto Antenna Elettronica">
+  <!-- Omino antennista stilizzato -->
+  <g>
+    <!-- palo antenna -->
+    <line x1="74" y1="8" x2="52" y2="74" stroke="#2e3192" stroke-width="3.5" stroke-linecap="round"/>
+    <!-- elementi Yagi -->
+    <line x1="62" y1="12" x2="84" y2="20" stroke="#2e3192" stroke-width="3" stroke-linecap="round"/>
+    <line x1="59" y1="22" x2="81" y2="30" stroke="#2e3192" stroke-width="3" stroke-linecap="round"/>
+    <line x1="56" y1="32" x2="78" y2="40" stroke="#2e3192" stroke-width="3" stroke-linecap="round"/>
+    <!-- omino -->
+    <circle cx="27" cy="33" r="8" fill="#ef8073"/>
+    <path d="M20 42 Q17 58 22 62 L36 60 Q40 50 36 44 Z" fill="#ef8073"/>
+    <path d="M34 46 L54 36" stroke="#ef8073" stroke-width="6" stroke-linecap="round" fill="none"/>
+    <path d="M23 61 L19 84" stroke="#ef8073" stroke-width="6.5" stroke-linecap="round" fill="none"/>
+    <path d="M33 60 L37 84" stroke="#ef8073" stroke-width="6.5" stroke-linecap="round" fill="none"/>
+    <!-- zaino rosso -->
+    <path d="M18 44 Q12 50 15 58 L21 57 Q19 50 22 45 Z" fill="#ed1c24"/>
+  </g>
+  <!-- Scritta principale -->
+  <text x="104" y="66" font-family="Georgia, 'Times New Roman', serif" font-weight="bold" font-size="58" fill="#2e3192" textLength="556" lengthAdjust="spacingAndGlyphs">Il Punto Antenna</text>
+  <!-- Barra rossa Elettronica -->
+  <rect x="168" y="78" width="428" height="21" fill="#ed1c24"/>
+  <text x="382" y="93.5" font-family="Georgia, 'Times New Roman', serif" font-weight="bold" font-size="15" fill="#ffffff" text-anchor="middle" letter-spacing="2">Elettronica</text>
+</svg>
