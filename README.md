@@ -35,9 +35,15 @@ Il sito da solo non basta: per le ricerche locali il fattore n.1 è la **scheda 
 - [ ] **Dominio proprio**: un dominio tipo `ilpuntoantennaelettronica.it` è più efficace di un sottodominio gratuito.
 - [ ] Aggiungere col tempo contenuti utili (es. "come risintonizzare i canali", "cosa fare se il segnale TV squadretta"): portano traffico da ricerche correlate.
 
-## Pubblicazione su GitHub Pages
+## Pubblicazione su Netlify (consigliata)
 
-1. Repository → **Settings → Pages**.
-2. Source: **Deploy from a branch**, branch `main` (o il branch scelto), cartella `/ (root)`.
-3. Il sito sarà online su `https://<utente>.github.io/ilpuntoantennaelettronica/`.
-4. Per il dominio personalizzato: aggiungere il dominio in Settings → Pages e creare il record DNS indicato da GitHub (poi aggiornare le URL canoniche).
+Il repo include già `netlify.toml` (header di sicurezza + cache del CSS). Per pubblicare:
+
+1. Su [app.netlify.com](https://app.netlify.com) → **Add new site → Import an existing project** → collega questo repository GitHub.
+2. Build command: *(vuoto)* – Publish directory: `.` (già impostati dal `netlify.toml`).
+3. Il sito va online su `https://<nome>.netlify.app`. La pagina `404.html` viene usata automaticamente.
+4. **Dominio personalizzato**: Site settings → Domain management → aggiungi il dominio (es. `ilpuntoantennaelettronica.it`), Netlify configura HTTPS da solo. Poi aggiorna le URL canoniche in tutti i file HTML, `sitemap.xml` e `robots.txt`.
+
+### In alternativa: GitHub Pages
+
+Settings → Pages → Deploy from a branch → branch `main`, cartella `/ (root)`.

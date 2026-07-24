@@ -1,0 +1,20 @@
+# Configurazione Netlify – Il Punto Antenna Elettronica
+# Sito statico: nessun comando di build, si pubblica la root del repo.
+
+[build]
+  publish = "."
+
+# Sicurezza di base (aiutano anche il punteggio qualità del sito)
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "SAMEORIGIN"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Permissions-Policy = "camera=(), microphone=(), geolocation=()"
+
+# Cache lunga per il CSS (cambia raramente)
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=604800"
