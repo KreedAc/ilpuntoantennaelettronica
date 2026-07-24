@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://www.ilpuntoantennaelettronica.it/sitemap.xml
+Sitemap: https://ilpuntoantennaelettronica.netlify.app/sitemap.xml
