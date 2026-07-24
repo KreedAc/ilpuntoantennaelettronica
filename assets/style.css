@@ -188,29 +188,31 @@ nav.principale a[aria-current="page"] {
 }
 .bottone svg { flex-shrink: 0; }
 .bottone:hover { transform: translateY(-1px); }
-.bottone.pieno {
+.bottone.pieno,
+.bottone.contorno,
+.bottone.whatsapp {
   background: var(--bianco);
-  color: var(--rosso);
-  border: 1.5px solid var(--grigio-bordo);
-}
-.bottone.pieno:hover { border-color: var(--rosso); background: #fffafa; }
-.bottone.contorno {
-  border: 1.5px solid var(--grigio-bordo);
   color: var(--blu);
-  background: var(--bianco);
+  border: 1.5px solid var(--grigio-bordo);
 }
-.bottone.contorno:hover { border-color: var(--blu); }
+/* le icone tengono il loro colore: telefono rosso, WhatsApp verde */
+.bottone.pieno svg { color: var(--rosso); }
+.bottone.whatsapp svg { color: #128c3e; }
+
+.bottone.pieno:hover,
+.bottone.contorno:hover,
+.bottone.whatsapp:hover { border-color: var(--blu); }
+.bottone:active,
+.bottone:focus-visible {
+  border-color: var(--blu);
+  background: rgba(46, 49, 146, 0.06);
+  outline: none;
+}
 .colonna-cta {
   display: flex;
   flex-direction: column;
   gap: 0.7rem;
 }
-.bottone.whatsapp {
-  background: var(--bianco);
-  color: #128c3e;
-  border: 1.5px solid var(--grigio-bordo);
-}
-.bottone.whatsapp:hover { border-color: #25d366; background: #f8fffb; }
 
 /* ---------- Sezioni ---------- */
 section { padding: 4rem 0; }
@@ -331,6 +333,9 @@ ul.vantaggi li::before {
 }
 .banda-cta p { margin-bottom: 1.6rem; font-size: 1.05rem; color: #d9dcf5; }
 .banda-cta .azioni-centro { display: flex; gap: 0.9rem; justify-content: center; flex-wrap: wrap; }
+/* sul fondo blu il bordo grigio sparirebbe: lo schiarisco */
+.banda-cta .bottone { border-color: rgba(255, 255, 255, 0.55); }
+.banda-cta .bottone:hover { border-color: var(--bianco); }
 
 /* ---------- Contatti ---------- */
 .contatti-griglia {
