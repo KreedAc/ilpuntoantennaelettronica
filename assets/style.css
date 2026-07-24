@@ -275,7 +275,7 @@ section.alternata { background: var(--grigio-chiaro); }
   font-weight: 700;
   letter-spacing: -0.015em;
 }
-.scheda p { font-size: 0.97rem; }
+.scheda p { font-size: 1rem; line-height: 1.62; }
 .scheda .icona {
   width: 46px;
   height: 46px;
@@ -492,6 +492,8 @@ footer.sito li + li { margin-top: 0.5rem; }
   .hero .colonna-cta { flex-direction: column; width: 100%; }
   .colonna-cta { width: 100%; }
   .hero .bottone { width: 100%; }
-  section { padding: 3rem 0; }
-  .griglia { gap: 1rem; }
+  section { padding: 3.4rem 0; }
+  .griglia { gap: 1.1rem; }
+  .scheda { padding: 1.8rem 1.6rem 1.6rem; }
+  .articolo h2 { margin-top: 2.6rem; }
 }
