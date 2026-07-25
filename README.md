@@ -18,12 +18,15 @@ Sito vetrina statico, ottimizzato per la SEO locale, per **Il Punto Antenna Elet
 | `sitemap.xml`, `robots.txt` | File tecnici per i motori di ricerca |
 | `404.html` | Pagina di errore (usata automaticamente da Netlify) |
 | `assets/style.css` | Foglio di stile unico, nessuna dipendenza esterna |
+| `assets/fonts/` | Carattere Inter (SIL OFL), servito dal sito stesso |
 | `assets/logo.png` | Logo originale dell'insegna |
 | `materiali/` | QR recensioni Google + cartellino A6 pronto da stampare |
 
-Il sito è HTML/CSS puro: niente build, niente framework, nessuna dipendenza esterna.
+Il sito è HTML/CSS puro: niente build, niente framework, nessuna richiesta a server esterni (carattere e icone sono locali). Il menu a comparsa su mobile e le schede cliccabili funzionano senza JavaScript.
 
-**Nota sulla cache**: `netlify.toml` imposta `Cache-Control: max-age=0`, così ogni modifica pubblicata è visibile all'istante. Il CSS è linkato con un parametro di versione (`style.css?v=3`): **incrementarlo a ogni modifica importante dello stile**, per forzare l'aggiornamento sui browser dei visitatori.
+**Convenzioni di stile**: fondo pagina grigio chiarissimo (`#f5f7fa`) con schede e sezioni alternate bianche; carattere Inter; icone SVG a tratto da 24px, spessore 1.8, che ereditano il colore dal contenitore.
+
+**Nota sulla cache**: `netlify.toml` imposta `Cache-Control: max-age=0`, così ogni modifica pubblicata è visibile all'istante. Il CSS è linkato con un parametro di versione (`style.css?v=N`): **incrementare N in tutte le pagine a ogni modifica dello stile**, per forzare l'aggiornamento sui browser di chi ha già visitato il sito.
 
 ## Dati dell'attività (verificati sulla scheda Google Business, luglio 2026)
 
