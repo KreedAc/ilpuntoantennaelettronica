@@ -456,6 +456,8 @@ footer.sito li + li { margin-top: 0.5rem; }
   text-align: center;
   font-size: 0.85rem;
 }
+.footer-legale .legale-link { margin-top: 0.5rem; }
+.footer-legale .legale-link a { text-decoration: underline; text-underline-offset: 3px; }
 .footer-legale .firma { margin-top: 0.5rem; color: #98a1cd; }
 .footer-legale .firma a {
   color: #e8ebfa;
