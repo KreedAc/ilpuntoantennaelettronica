@@ -24,6 +24,7 @@ Sito vetrina statico, ottimizzato per la SEO locale, per **Il Punto Antenna Elet
 | `assets/prodotti/` | Foto degli smartphone ricondizionati (WebP), estratte dal volantino del fornitore |
 | `dati/` | Contenuti modificabili: recensioni, media, cataloghi prodotti (JSON) |
 | `scripts/genera.py` | Rigenera i blocchi delle pagine a partire da `dati/` |
+| `admin/` | Pannello di amministrazione (Sveltia CMS), escluso dall'indicizzazione |
 | `materiali/` | QR recensioni Google + cartellino A6 pronto da stampare |
 
 Il sito è HTML/CSS puro: niente framework, nessuna richiesta a server esterni (carattere e icone sono locali). Il menu a comparsa su mobile e le schede cliccabili funzionano senza JavaScript.
@@ -54,7 +55,29 @@ Il generatore gira **da solo a ogni deploy** (`command` in `netlify.toml`): bast
 
 Ogni prodotto ha un campo `visibile`: metterlo a `false` lo toglie dal sito **senza perdere i dati**, utile quando un pezzo è esaurito ma tornerà.
 
-Per aggiungere un catalogo nuovo (TV, condizionatori…): un file `dati/catalogo-xxx.json`, i marcatori nella pagina e tre righe in `genera.py`.
+Per aggiungere un catalogo nuovo (TV, condizionatori…): un file `dati/catalogo-xxx.json`, i marcatori nella pagina e tre righe in `genera.py`. Poi aggiungerlo anche in `admin/config.yml` per vederlo nel pannello.
+
+## Pannello di amministrazione
+
+Su **`/admin`** c'è [Sveltia CMS](https://github.com/sveltia/sveltia-cms): modifica i file di `dati/` scrivendo direttamente su GitHub, senza toccare il codice. A ogni salvataggio Netlify ricostruisce e pubblica (circa un minuto). Funziona anche da telefono.
+
+È l'**unica pagina del sito che carica uno script esterno**; tutte le pagine pubbliche restano HTML puro.
+
+### Come si entra
+
+L'accesso usa un **token personale GitHub**, così non serve nessuna app OAuth né servizi di terze parti (`auth_methods: [token]` in `admin/config.yml`).
+
+1. Su GitHub: *Settings → Developer settings → Personal access tokens → Fine-grained tokens → Generate new token*
+2. **Repository access**: solo `KreedAc/ilpuntoantennaelettronica`
+3. **Permissions → Repository permissions**: `Contents` = **Read and write** (basta questo)
+4. Copiare il token e incollarlo nella schermata di accesso di `/admin`
+
+Il token resta nel browser di chi lo inserisce: non è nel repository e non è pubblico. Se si perde il telefono, basta revocarlo da GitHub.
+
+### Due cose da sapere
+
+- **Il ramo è scritto in `admin/config.yml`** (`backend.branch`): deve sempre corrispondere a quello che Netlify pubblica. Se il sito passa a `main` dopo il merge, va aggiornato lì.
+- **Dopo una modifica dal pannello l'HTML nel repository resta indietro**, perché il generatore gira durante la build e non ricommitta. Il sito pubblicato è comunque corretto. Per riallineare i file in locale basta `python3 scripts/genera.py`.
 
 **Convenzioni di stile**: fondo pagina grigio chiarissimo (`#f5f7fa`) con schede e sezioni alternate bianche; carattere Inter; icone SVG a tratto da 24px, spessore 1.8, che ereditano il colore dal contenitore.
 

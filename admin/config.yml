@@ -1,0 +1,139 @@
+# Pannello di amministrazione – Sveltia CMS
+#
+# Modifica i file in `dati/` scrivendo direttamente su GitHub. A ogni
+# salvataggio Netlify ricostruisce il sito: `scripts/genera.py` riversa i
+# dati nelle pagine e pubblica. Il sito resta HTML statico.
+#
+# Accesso: token personale GitHub (vedi README, sezione "Pannello").
+# Nessuna app OAuth e nessun servizio esterno da configurare.
+
+backend:
+  name: github
+  repo: KreedAc/ilpuntoantennaelettronica
+  branch: claude/sito-web-lamezia-terme-w44nlt
+  auth_methods: [token]
+  commit_messages:
+    update: 'Aggiorna {{collection}} dal pannello'
+    uploadMedia: 'Carica {{path}} dal pannello'
+    deleteMedia: 'Rimuovi {{path}} dal pannello'
+
+app_title: Il Punto Antenna – Pannello
+site_url: https://ilpuntoantennaelettronica.netlify.app
+logo_url: https://ilpuntoantennaelettronica.netlify.app/assets/logo.png
+
+media_folder: assets/prodotti
+public_folder: assets/prodotti
+
+collections:
+  # ---------------------------------------------------------------- dati
+  - name: attivita
+    label: Dati del negozio
+    icon: storefront
+    files:
+      - name: recensioni
+        label: Recensioni Google
+        file: dati/attivita.json
+        icon: star
+        fields:
+          - name: recensioni
+            label: Recensioni
+            widget: object
+            fields:
+              - name: numero
+                label: Quante recensioni
+                hint: Il numero che leggi sulla scheda Google dell'attività.
+                widget: number
+                value_type: int
+                min: 0
+              - name: media
+                label: Media del voto
+                hint: 'Con la virgola, come si legge su Google. Esempio: 4,9'
+                widget: string
+                pattern: ['^[1-5],[0-9]$', 'Scrivi il voto con la virgola, ad esempio 4,9']
+              - name: url
+                label: Link alla scheda Google
+                widget: string
+
+  # ------------------------------------------------------------ cataloghi
+  - name: cataloghi
+    label: Cataloghi
+    icon: inventory_2
+    files:
+      - name: smartphone
+        label: Smartphone ricondizionati
+        file: dati/catalogo-smartphone.json
+        icon: smartphone
+        fields:
+          - { name: id, widget: hidden }
+          - name: titolo
+            label: Titolo della sezione
+            widget: string
+          - name: introduzione
+            label: Testo introduttivo
+            hint: Si possono usare i tag <strong> per il grassetto.
+            widget: text
+          - name: aggiornato
+            label: Prezzi aggiornati al
+            hint: 'Compare in fondo alla sezione. Esempio: 31 luglio 2026'
+            widget: string
+          - name: nota_finale
+            label: Nota finale
+            widget: text
+          - name: gruppi
+            label: Gruppi di prodotti
+            label_singular: Gruppo
+            widget: list
+            collapsed: false
+            summary: '{{fields.titolo}}'
+            fields:
+              - name: titolo
+                label: Titolo del gruppo
+                widget: string
+              - name: nota
+                label: Riga sotto al titolo
+                widget: text
+              - name: prodotti
+                label: Prodotti
+                label_singular: Prodotto
+                widget: list
+                collapsed: true
+                summary: '{{fields.marca}} {{fields.modello}} — {{fields.prezzo}} €'
+                fields:
+                  - name: marca
+                    label: Marca
+                    hint: 'Apple, Samsung, Xiaomi, Google, Honor…'
+                    widget: string
+                  - name: modello
+                    label: Modello
+                    widget: string
+                  - name: variante
+                    label: Memoria, colore e stato
+                    hint: >-
+                      Separa le voci con " · " (spazio, punto mediano, spazio).
+                      Esempio: 128 GB · Rosa · Ottimo. Lascia vuoto per i
+                      modelli con il prezzo "a partire da".
+                    widget: string
+                    required: false
+                  - name: foto
+                    label: Foto
+                    widget: image
+                    choose_url: false
+                  - name: prezzo
+                    label: Prezzo
+                    hint: 'Solo il numero, con la virgola. Esempio: 449,90'
+                    widget: string
+                    pattern: ['^[0-9.]+,[0-9]{2}$', 'Scrivi il prezzo così: 449,90']
+                  - name: prezzo_pieno
+                    label: Prezzo prima dello sconto
+                    hint: >-
+                      Compilalo solo per le offerte: compare barrato accanto al
+                      prezzo, e il risparmio viene calcolato da solo. Lascia
+                      vuoto per i prezzi "a partire da".
+                    widget: string
+                    required: false
+                    pattern: ['^([0-9.]+,[0-9]{2})?$', 'Scrivi il prezzo così: 545,90, oppure lascia vuoto']
+                  - name: visibile
+                    label: Mostra sul sito
+                    hint: Spegnilo quando un articolo è esaurito, senza perderne i dati.
+                    widget: boolean
+                    default: true
