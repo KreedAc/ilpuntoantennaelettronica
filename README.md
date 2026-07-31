@@ -15,11 +15,13 @@ Sito vetrina statico, ottimizzato per la SEO locale, per **Il Punto Antenna Elet
 | `videosorveglianza-lamezia-terme.html` | Landing SEO – videosorveglianza e sistemi di allarme |
 | `negozio-elettronica-lamezia-terme.html` | Landing SEO – "negozio elettronica Lamezia Terme" (catalogo per categorie) |
 | `contatti.html` | Contatti, mappa Google e indicazioni |
+| `privacy.html` | Informativa privacy (GDPR artt. 13-14) – richiesta da Meta per i moduli di acquisizione contatti |
 | `sitemap.xml`, `robots.txt` | File tecnici per i motori di ricerca |
 | `404.html` | Pagina di errore (usata automaticamente da Netlify) |
 | `assets/style.css` | Foglio di stile unico, nessuna dipendenza esterna |
 | `assets/fonts/` | Carattere Inter (SIL OFL), servito dal sito stesso |
 | `assets/logo.png` | Logo originale dell'insegna |
+| `assets/prodotti/` | Foto degli smartphone ricondizionati (WebP), estratte dal volantino del fornitore |
 | `materiali/` | QR recensioni Google + cartellino A6 pronto da stampare |
 
 Il sito è HTML/CSS puro: niente build, niente framework, nessuna richiesta a server esterni (carattere e icone sono locali). Il menu a comparsa su mobile e le schede cliccabili funzionano senza JavaScript.
@@ -48,6 +50,8 @@ Se cambiano, aggiornare le pagine HTML **e** il JSON-LD in `index.html` (`openin
 - [x] **Google Search Console**: proprietà verificata (meta tag in `index.html`) e sitemap inviata
 - [x] **Google Business Profile**: sito collegato alla scheda
 - [x] **QR recensioni** + cartellino stampabile in `materiali/`
+- [x] **Informativa privacy** (`privacy.html`), linkata dal piè di pagina di tutte le pagine
+- [x] **Catalogo smartphone ricondizionati** in `telefonia-internet-lamezia-terme.html#ricondizionati`: 24 schede con foto, prezzo e link WhatsApp precompilato per prodotto
 
 ### ⏳ Da fare
 
@@ -55,7 +59,11 @@ Se cambiano, aggiornare le pagine HTML **e** il JSON-LD in `index.html` (`openin
 - [ ] **Foto reali** del negozio e dei lavori: aggiungerle al sito (nomi file descrittivi + attributo `alt`) e alla scheda Google.
 - [ ] **Bonifica directory**: la scheda su PagineBianche riporta ancora il vecchio indirizzo (Via Perugini) e il fisso. Correggere o rimuovere tramite Italiaonline: dati discordanti confondono Google (NAP consistency).
 - [ ] **Dominio proprio** (~10-15 €/anno): più efficace del sottodominio `.netlify.app`. Vedi procedura sotto.
-- [ ] **Email**: se l'attività ne ha una, aggiungerla in `contatti.html` e nel JSON-LD.
+- [ ] **Partita IVA**: da inserire in `privacy.html` (punto 1) e nel piè di pagina di tutte le pagine — obbligatoria per legge sui siti d'impresa (D.Lgs. 70/2003).
+- [ ] **Email**: se l'attività ne ha una, aggiungerla in `contatti.html`, in `privacy.html` (punto 1) e nel JSON-LD.
+- [ ] **Catalogo ricondizionati**: prezzi e disponibilità sono fotografati al 31/07/2026 e vanno riallineati a ogni nuovo volantino del fornitore. La data compare in fondo alla sezione: aggiornarla insieme ai prezzi.
+- [ ] **Foto dei prodotti**: provengono dal volantino Evolution Level; una (`iphone-13.webp`) riporta la filigrana `©recommerce`. Chiedere al fornitore il pacchetto immagini per rivenditori.
+- [ ] **Mappa di Google in `contatti.html`**: installa cookie di terze parti. Per evitare il banner di consenso, sostituirla con un'immagine statica che apre Google Maps al clic.
 - [ ] **`sameAs` nel JSON-LD**: aggiungere i link ai profili social (Facebook/Instagram) se esistono.
 - [ ] *(opzionale)* Contenuti utili nel tempo: "come risintonizzare i canali", "cosa fare se il segnale TV squadretta" — portano traffico da ricerche correlate.
 - [ ] *(opzionale)* Tag NFC da banco con il link recensioni: `https://g.page/r/CQoOih4xjnXMEBM/review`

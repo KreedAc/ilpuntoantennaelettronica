@@ -432,6 +432,139 @@ details.faq summary::after {
 details.faq[open] summary::after { transform: rotate(-135deg); top: 0.7rem; }
 details.faq p { margin-top: 0.8rem; }
 
+/* ---------- Catalogo prodotti ---------- */
+.titolo-gruppo {
+  color: var(--blu);
+  font-size: 1.35rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin: 2.6rem 0 0.3rem;
+}
+.griglia-prodotti:first-of-type ~ .titolo-gruppo,
+.titolo-sezione + .titolo-gruppo { margin-top: 0; }
+.nota-gruppo { margin-bottom: 1.3rem; color: var(--grigio-testo); font-size: 0.95rem; }
+.griglia-prodotti {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 1.1rem;
+}
+.prodotto {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  background: var(--bianco);
+  border: 1px solid var(--grigio-bordo);
+  border-radius: var(--radius);
+  padding: 1.1rem 1.1rem 1.2rem;
+  cursor: pointer;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+}
+.prodotto:hover {
+  transform: translateY(-3px);
+  border-color: #c9cfe8;
+  box-shadow: 0 10px 26px rgba(46, 49, 146, 0.1);
+}
+.prodotto:focus-within {
+  outline: 2px solid var(--blu);
+  outline-offset: 3px;
+}
+.prodotto .foto {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 175px;
+  margin-bottom: 0.9rem;
+}
+.prodotto .foto img {
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+}
+.prodotto .marca {
+  font-size: 0.76rem;
+  font-weight: 650;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--grigio-testo);
+}
+.prodotto h4 {
+  color: var(--blu);
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin-top: 0.15rem;
+}
+.prodotto .variante {
+  margin-top: 0.3rem;
+  font-size: 0.85rem;
+  line-height: 1.45;
+  color: var(--grigio-testo);
+}
+.prodotto .prezzo {
+  margin-top: auto;
+  padding-top: 0.9rem;
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+.prodotto .prezzo s { color: #8a93a8; font-size: 0.92rem; }
+.prodotto .prezzo .da { color: var(--grigio-testo); font-size: 0.82rem; }
+.prodotto .prezzo strong {
+  color: var(--rosso-scuro);
+  font-size: 1.2rem;
+  font-weight: 750;
+  letter-spacing: -0.02em;
+}
+.prodotto .risparmio {
+  position: absolute;
+  top: 0.9rem;
+  right: 0.9rem;
+  z-index: 1;
+  pointer-events: none;
+  background: var(--rosso);
+  color: var(--bianco);
+  font-size: 0.78rem;
+  font-weight: 700;
+  padding: 0.22rem 0.55rem;
+  border-radius: 999px;
+}
+.prodotto a.link-prodotto {
+  margin-top: 0.75rem;
+  color: var(--blu);
+  font-weight: 650;
+  font-size: 0.92rem;
+  text-decoration: none;
+  border-bottom: 1px solid rgba(46, 49, 146, 0.3);
+  align-self: flex-start;
+}
+.prodotto:hover a.link-prodotto { border-bottom-color: var(--blu); }
+.prodotto a.link-prodotto::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: var(--radius);
+}
+.nota-catalogo {
+  margin-top: 1.8rem;
+  font-size: 0.9rem;
+  line-height: 1.6;
+  color: var(--grigio-testo);
+}
+.nota-catalogo a { color: var(--rosso-scuro); }
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 /* ---------- Footer ---------- */
 footer.sito {
   background: var(--blu-scuro);
@@ -501,4 +634,19 @@ footer.sito li + li { margin-top: 0.5rem; }
   .griglia { gap: 1.1rem; }
   .scheda { padding: 1.8rem 1.6rem 1.6rem; }
   .articolo h2 { margin-top: 2.6rem; }
+
+  .griglia-prodotti {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.8rem;
+  }
+  .prodotto { padding: 0.85rem 0.85rem 1rem; }
+  .prodotto .foto { height: 130px; margin-bottom: 0.7rem; }
+  .prodotto h4 { font-size: 0.98rem; }
+  .prodotto .variante { font-size: 0.8rem; }
+  .prodotto .prezzo { gap: 0.3rem; padding-top: 0.7rem; }
+  .prodotto .prezzo s { font-size: 0.82rem; }
+  .prodotto .prezzo strong { font-size: 1.08rem; }
+  .prodotto a.link-prodotto { font-size: 0.86rem; }
+  .prodotto .risparmio { top: 0.6rem; right: 0.6rem; font-size: 0.72rem; }
+  .titolo-gruppo { font-size: 1.2rem; }
 }
