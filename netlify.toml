@@ -1,8 +1,11 @@
 # Configurazione Netlify – Il Punto Antenna Elettronica
-# Sito statico: nessun comando di build, si pubblica la root del repo.
+# Sito statico. Prima di pubblicare, `scripts/genera.py` riscrive i blocchi
+# delle pagine che dipendono dai file in `dati/` (recensioni e cataloghi).
+# Le pagine restano HTML puro: la build non genera codice lato client.
 
 [build]
   publish = "."
+  command = "python3 scripts/genera.py"
 
 # Sicurezza di base (aiutano anche il punteggio qualità del sito)
 # Cache disattivata: ogni modifica pubblicata è visibile all'istante.

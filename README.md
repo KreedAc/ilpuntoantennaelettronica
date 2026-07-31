@@ -22,9 +22,39 @@ Sito vetrina statico, ottimizzato per la SEO locale, per **Il Punto Antenna Elet
 | `assets/fonts/` | Carattere Inter (SIL OFL), servito dal sito stesso |
 | `assets/logo.png` | Logo originale dell'insegna |
 | `assets/prodotti/` | Foto degli smartphone ricondizionati (WebP), estratte dal volantino del fornitore |
+| `dati/` | Contenuti modificabili: recensioni, media, cataloghi prodotti (JSON) |
+| `scripts/genera.py` | Rigenera i blocchi delle pagine a partire da `dati/` |
 | `materiali/` | QR recensioni Google + cartellino A6 pronto da stampare |
 
-Il sito è HTML/CSS puro: niente build, niente framework, nessuna richiesta a server esterni (carattere e icone sono locali). Il menu a comparsa su mobile e le schede cliccabili funzionano senza JavaScript.
+Il sito è HTML/CSS puro: niente framework, nessuna richiesta a server esterni (carattere e icone sono locali). Il menu a comparsa su mobile e le schede cliccabili funzionano senza JavaScript.
+
+## Contenuti modificabili (`dati/` + generatore)
+
+Recensioni e cataloghi **non si modificano a mano nell'HTML**: stanno in `dati/*.json`, e `scripts/genera.py` li riversa nelle pagine.
+
+```bash
+python3 scripts/genera.py             # rigenera i blocchi
+python3 scripts/genera.py --verifica  # controlla senza scrivere (esce 1 se disallineato)
+```
+
+Lo script tocca **solo** il testo compreso fra i marcatori, e lascia intatto tutto il resto della pagina:
+
+```html
+<!-- GENERATO: catalogo-smartphone -->
+...contenuto riscritto a ogni build...
+<!-- FINE: catalogo-smartphone -->
+```
+
+| Blocco | Pagina | File dei dati |
+|---|---|---|
+| `recensioni-fascia`, `recensioni-riga` | `index.html` | `dati/attivita.json` |
+| `catalogo-smartphone` | `telefonia-internet-lamezia-terme.html` | `dati/catalogo-smartphone.json` |
+
+Il generatore gira **da solo a ogni deploy** (`command` in `netlify.toml`): basta modificare un file in `dati/` e fare push. Usa la sola libreria standard di Python — nessuna dipendenza da installare.
+
+Ogni prodotto ha un campo `visibile`: metterlo a `false` lo toglie dal sito **senza perdere i dati**, utile quando un pezzo è esaurito ma tornerà.
+
+Per aggiungere un catalogo nuovo (TV, condizionatori…): un file `dati/catalogo-xxx.json`, i marcatori nella pagina e tre righe in `genera.py`.
 
 **Convenzioni di stile**: fondo pagina grigio chiarissimo (`#f5f7fa`) con schede e sezioni alternate bianche; carattere Inter; icone SVG a tratto da 24px, spessore 1.8, che ereditano il colore dal contenitore.
 
@@ -67,6 +97,7 @@ Se cambiano, aggiornare le pagine HTML **e** il JSON-LD in `index.html` (`openin
 - [ ] **`sameAs` nel JSON-LD**: aggiungere i link ai profili social (Facebook/Instagram) se esistono.
 - [ ] *(opzionale)* Contenuti utili nel tempo: "come risintonizzare i canali", "cosa fare se il segnale TV squadretta" — portano traffico da ricerche correlate.
 - [ ] *(opzionale)* Tag NFC da banco con il link recensioni: `https://g.page/r/CQoOih4xjnXMEBM/review`
+- [ ] *(opzionale)* **Pannello di amministrazione**: con i dati già in `dati/`, si aggiunge [Sveltia CMS](https://github.com/sveltia/sveltia-cms) su `/admin` per modificare recensioni e cataloghi da browser (anche da telefono) senza toccare i file. ⚠️ Non usare Decap CMS con Netlify Identity/Git Gateway: entrambi sono deprecati.
 
 ## Pubblicazione e dominio
 

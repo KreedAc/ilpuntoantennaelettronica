@@ -1,0 +1,237 @@
+{
+  "id": "smartphone",
+  "titolo": "Smartphone ricondizionati a Lamezia Terme",
+  "introduzione": "Ricondizionati certificati, <strong>garanzia 24 mesi</strong> e batteria verificata. Li ordini in negozio: te li configuriamo noi e trasferiamo dati e rubrica dal vecchio telefono.",
+  "aggiornato": "31 luglio 2026",
+  "nota_finale": "I gradi <strong>Premium</strong>, <strong>Ottimo</strong> e <strong>Buono</strong> indicano lo stato estetico del telefono: il funzionamento è garantito allo stesso modo su tutti.",
+  "gruppi": [
+    {
+      "titolo": "Offerte del momento",
+      "nota": "Pezzi singoli disponibili a prezzo ridotto: quando finiscono, finiscono.",
+      "prodotti": [
+        {
+          "marca": "Apple",
+          "modello": "iPhone 15 Plus",
+          "variante": "128 GB · Rosa · Ottimo",
+          "foto": "assets/prodotti/offerta-iphone-15-plus.webp",
+          "prezzo": "479,90",
+          "prezzo_pieno": "545,90",
+          "visibile": true
+        },
+        {
+          "marca": "Apple",
+          "modello": "iPhone 15",
+          "variante": "128 GB · Rosa · Ottimo",
+          "foto": "assets/prodotti/offerta-iphone-15.webp",
+          "prezzo": "449,90",
+          "prezzo_pieno": "524,90",
+          "visibile": true
+        },
+        {
+          "marca": "Apple",
+          "modello": "iPhone 12 Pro Max",
+          "variante": "256 GB · Blu · Ottimo",
+          "foto": "assets/prodotti/offerta-iphone-12-pro-max.webp",
+          "prezzo": "359,90",
+          "prezzo_pieno": "409,90",
+          "visibile": true
+        },
+        {
+          "marca": "Apple",
+          "modello": "iPhone 11 Pro",
+          "variante": "256 GB · Oro · Buono",
+          "foto": "assets/prodotti/offerta-iphone-11-pro.webp",
+          "prezzo": "229,90",
+          "prezzo_pieno": "251,90",
+          "visibile": true
+        },
+        {
+          "marca": "Xiaomi",
+          "modello": "15 Ultra",
+          "variante": "Mono SIM · 512 GB · Grigio · Premium",
+          "foto": "assets/prodotti/offerta-xiaomi-15-ultra.webp",
+          "prezzo": "849,90",
+          "prezzo_pieno": "965,90",
+          "visibile": true
+        },
+        {
+          "marca": "Xiaomi",
+          "modello": "15",
+          "variante": "Mono SIM · 512 GB · Verde · Premium",
+          "foto": "assets/prodotti/offerta-xiaomi-15.webp",
+          "prezzo": "599,90",
+          "prezzo_pieno": "682,90",
+          "visibile": true
+        },
+        {
+          "marca": "Xiaomi",
+          "modello": "15T",
+          "variante": "Mono SIM · 256 GB · Grigio · Premium",
+          "foto": "assets/prodotti/offerta-xiaomi-15t.webp",
+          "prezzo": "449,90",
+          "prezzo_pieno": "493,90",
+          "visibile": true
+        },
+        {
+          "marca": "Honor",
+          "modello": "Magic4 Pro",
+          "variante": "Dual SIM · 256 GB · Nero · Buono",
+          "foto": "assets/prodotti/offerta-honor-magic4-pro.webp",
+          "prezzo": "249,90",
+          "prezzo_pieno": "293,90",
+          "visibile": true
+        }
+      ]
+    },
+    {
+      "titolo": "Gli altri modelli che puoi ordinare",
+      "nota": "Disponibili in più tagli di memoria, colori e livelli estetici — il prezzo indicato è quello di partenza.",
+      "prodotti": [
+        {
+          "marca": "Apple",
+          "modello": "iPhone 16",
+          "variante": "",
+          "foto": "assets/prodotti/iphone-16.webp",
+          "prezzo": "661,90",
+          "prezzo_pieno": "",
+          "visibile": true
+        },
+        {
+          "marca": "Apple",
+          "modello": "iPhone 16 Pro",
+          "variante": "",
+          "foto": "assets/prodotti/iphone-16-pro.webp",
+          "prezzo": "787,90",
+          "prezzo_pieno": "",
+          "visibile": true
+        },
+        {
+          "marca": "Apple",
+          "modello": "iPhone 15",
+          "variante": "",
+          "foto": "assets/prodotti/iphone-15.webp",
+          "prezzo": "482,90",
+          "prezzo_pieno": "",
+          "visibile": true
+        },
+        {
+          "marca": "Apple",
+          "modello": "iPhone 15 Pro",
+          "variante": "",
+          "foto": "assets/prodotti/iphone-15-pro.webp",
+          "prezzo": "640,90",
+          "prezzo_pieno": "",
+          "visibile": true
+        },
+        {
+          "marca": "Apple",
+          "modello": "iPhone 14",
+          "variante": "",
+          "foto": "assets/prodotti/iphone-14.webp",
+          "prezzo": "377,90",
+          "prezzo_pieno": "",
+          "visibile": true
+        },
+        {
+          "marca": "Apple",
+          "modello": "iPhone 14 Pro",
+          "variante": "",
+          "foto": "assets/prodotti/iphone-14-pro.webp",
+          "prezzo": "503,90",
+          "prezzo_pieno": "",
+          "visibile": true
+        },
+        {
+          "marca": "Apple",
+          "modello": "iPhone 13",
+          "variante": "",
+          "foto": "assets/prodotti/iphone-13.webp",
+          "prezzo": "304,90",
+          "prezzo_pieno": "",
+          "visibile": true
+        },
+        {
+          "marca": "Apple",
+          "modello": "iPhone 13 Pro",
+          "variante": "",
+          "foto": "assets/prodotti/iphone-13-pro.webp",
+          "prezzo": "398,90",
+          "prezzo_pieno": "",
+          "visibile": true
+        },
+        {
+          "marca": "Samsung",
+          "modello": "Galaxy S25 Ultra",
+          "variante": "",
+          "foto": "assets/prodotti/galaxy-s25-ultra.webp",
+          "prezzo": "734,90",
+          "prezzo_pieno": "",
+          "visibile": true
+        },
+        {
+          "marca": "Samsung",
+          "modello": "Galaxy S25+",
+          "variante": "",
+          "foto": "assets/prodotti/galaxy-s25-plus.webp",
+          "prezzo": "629,90",
+          "prezzo_pieno": "",
+          "visibile": true
+        },
+        {
+          "marca": "Samsung",
+          "modello": "Galaxy S25",
+          "variante": "",
+          "foto": "assets/prodotti/galaxy-s25.webp",
+          "prezzo": "524,90",
+          "prezzo_pieno": "",
+          "visibile": true
+        },
+        {
+          "marca": "Samsung",
+          "modello": "Galaxy S24 Ultra",
+          "variante": "",
+          "foto": "assets/prodotti/galaxy-s24-ultra.webp",
+          "prezzo": "682,90",
+          "prezzo_pieno": "",
+          "visibile": true
+        },
+        {
+          "marca": "Samsung",
+          "modello": "Galaxy S24",
+          "variante": "",
+          "foto": "assets/prodotti/galaxy-s24.webp",
+          "prezzo": "461,90",
+          "prezzo_pieno": "",
+          "visibile": true
+        },
+        {
+          "marca": "Samsung",
+          "modello": "Galaxy A54",
+          "variante": "",
+          "foto": "assets/prodotti/galaxy-a54.webp",
+          "prezzo": "225,90",
+          "prezzo_pieno": "",
+          "visibile": true
+        },
+        {
+          "marca": "Google",
+          "modello": "Pixel 10 Pro",
+          "variante": "",
+          "foto": "assets/prodotti/pixel-10-pro.webp",
+          "prezzo": "745,90",
+          "prezzo_pieno": "",
+          "visibile": true
+        },
+        {
+          "marca": "Google",
+          "modello": "Pixel 9",
+          "variante": "",
+          "foto": "assets/prodotti/pixel-9.webp",
+          "prezzo": "451,90",
+          "prezzo_pieno": "",
+          "visibile": true
+        }
+      ]
+    }
+  ]
+}
