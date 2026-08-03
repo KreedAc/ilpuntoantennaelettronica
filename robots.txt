@@ -2,4 +2,4 @@ User-agent: *
 Allow: /
 Disallow: /admin/
 
-Sitemap: https://ilpuntoantennaelettronica.netlify.app/sitemap.xml
+Sitemap: https://ilpuntoantennaelettronica.com/sitemap.xml

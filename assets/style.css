@@ -596,6 +596,9 @@ footer.sito a { color: #e8ebfa; text-decoration: none; }
 footer.sito a:hover { text-decoration: underline; }
 footer.sito ul { list-style: none; }
 footer.sito li + li { margin-top: 0.5rem; }
+footer.sito li.social { margin-top: 0.9rem; display: flex; gap: 1.1rem; flex-wrap: wrap; }
+footer.sito li.social a { display: inline-flex; align-items: center; gap: 0.4rem; }
+footer.sito li.social svg { flex-shrink: 0; }
 .footer-legale {
   border-top: 1px solid rgba(255,255,255,0.14);
   padding-top: 1.3rem;

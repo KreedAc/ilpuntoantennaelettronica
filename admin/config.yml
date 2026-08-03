@@ -18,8 +18,8 @@ backend:
     deleteMedia: 'Rimuovi {{path}} dal pannello'
 
 app_title: Il Punto Antenna – Pannello
-site_url: https://ilpuntoantennaelettronica.netlify.app
-logo_url: https://ilpuntoantennaelettronica.netlify.app/assets/logo.png
+site_url: https://ilpuntoantennaelettronica.com
+logo_url: https://ilpuntoantennaelettronica.com/assets/logo.png
 
 media_folder: assets/prodotti
 public_folder: assets/prodotti

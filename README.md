@@ -2,7 +2,7 @@
 
 Sito vetrina statico, ottimizzato per la SEO locale, per **Il Punto Antenna Elettronica di Rumoro Tiziana** – Corso Eroi di Sapri 32, 88046 Lamezia Terme (CZ).
 
-🌐 Online su **https://ilpuntoantennaelettronica.netlify.app/**
+🌐 Online su **https://ilpuntoantennaelettronica.com/**
 
 ## Struttura
 
@@ -86,10 +86,15 @@ Il token resta nel browser di chi lo inserisce: non è nel repository e non è p
 
 ## Dati dell'attività (verificati sulla scheda Google Business, luglio 2026)
 
+- Ragione sociale: Il Punto Antenna Elettronica di Rumoro Tiziana
 - Indirizzo: Corso Eroi di Sapri, 32 – 88046 Lamezia Terme (CZ)
 - Telefono / WhatsApp: 380 283 0773
+- Email: ilpuntoantennaelettr@libero.it
+- Partita IVA e Codice Fiscale: 03065030797
 - Orari: Lun–Ven 9:00–12:30 e 16:30–19:00 · sabato e domenica chiusi
 - Coordinate: 38.9638, 16.2839
+- Facebook: https://www.facebook.com/p/Il-Punto-Antenna-Elettronica-100054474850234/
+- Instagram: https://www.instagram.com/ilpuntoantennaelettronica/
 
 Se cambiano, aggiornare le pagine HTML **e** il JSON-LD in `index.html` (`openingHoursSpecification`, `geo`, `telephone`).
 
@@ -103,6 +108,9 @@ Se cambiano, aggiornare le pagine HTML **e** il JSON-LD in `index.html` (`openin
 - [x] **Sitemap, robots.txt, canonical, Open Graph** su tutte le pagine
 - [x] **Google Search Console**: proprietà verificata (meta tag in `index.html`) e sitemap inviata
 - [x] **Google Business Profile**: sito collegato alla scheda
+- [x] **Dominio proprio**: `ilpuntoantennaelettronica.com`
+- [x] **Partita IVA** nel piè di pagina di tutte le pagine (obbligatoria per il D.Lgs. 70/2003) e nell'informativa privacy
+- [x] **Email e profili social** in `contatti.html`, nel piè di pagina e nel JSON-LD (`email`, `sameAs`, `vatID`)
 - [x] **QR recensioni** + cartellino stampabile in `materiali/`
 - [x] **Informativa privacy** (`privacy.html`), linkata dal piè di pagina di tutte le pagine
 - [x] **Catalogo smartphone ricondizionati** in `telefonia-internet-lamezia-terme.html#ricondizionati`: 24 schede con foto, prezzo e link WhatsApp precompilato per prodotto
@@ -110,15 +118,13 @@ Se cambiano, aggiornare le pagine HTML **e** il JSON-LD in `index.html` (`openin
 ### ⏳ Da fare
 
 - [ ] **Recensioni Google**: chiedere sempre a fine lavoro, con il QR in negozio. È il fattore n.1 del "local pack". ⚠️ Mai suggerire testi ai clienti né far scrivere recensioni a chi non è cliente: Google le rileva e rimuove, ed è vietato per legge (pratica commerciale ingannevole). Il canale legittimo per inserire le parole chiave è **rispondere** alle recensioni dal profilo dell'attività.
-- [ ] **Foto reali** del negozio e dei lavori: aggiungerle al sito (nomi file descrittivi + attributo `alt`) e alla scheda Google.
+- [ ] **Foto reali** del negozio e dei lavori: aggiungerle al sito (nomi file descrittivi + attributo `alt`) e alla scheda Google. **È la cosa che manca di più**: oggi il sito non contiene nessuna fotografia dell'attività.
+- [ ] **Search Console**: creare la proprietà per `ilpuntoantennaelettronica.com`, verificarla e inviare di nuovo la sitemap. La vecchia proprietà `.netlify.app` va tenuta finché Google non ha riscansionato tutto.
+- [ ] **Scheda Google e social**: aggiornare il link al sito con il nuovo dominio.
 - [ ] **Bonifica directory**: la scheda su PagineBianche riporta ancora il vecchio indirizzo (Via Perugini) e il fisso. Correggere o rimuovere tramite Italiaonline: dati discordanti confondono Google (NAP consistency).
-- [ ] **Dominio proprio** (~10-15 €/anno): più efficace del sottodominio `.netlify.app`. Vedi procedura sotto.
-- [ ] **Partita IVA**: da inserire in `privacy.html` (punto 1) e nel piè di pagina di tutte le pagine — obbligatoria per legge sui siti d'impresa (D.Lgs. 70/2003).
-- [ ] **Email**: se l'attività ne ha una, aggiungerla in `contatti.html`, in `privacy.html` (punto 1) e nel JSON-LD.
 - [ ] **Catalogo ricondizionati**: prezzi e disponibilità sono fotografati al 31/07/2026 e vanno riallineati a ogni nuovo volantino del fornitore. La data compare in fondo alla sezione: aggiornarla insieme ai prezzi.
 - [ ] **Foto dei prodotti**: provengono dal volantino Evolution Level; una (`iphone-13.webp`) riporta la filigrana `©recommerce`. Chiedere al fornitore il pacchetto immagini per rivenditori.
 - [ ] **Mappa di Google in `contatti.html`**: installa cookie di terze parti. Per evitare il banner di consenso, sostituirla con un'immagine statica che apre Google Maps al clic.
-- [ ] **`sameAs` nel JSON-LD**: aggiungere i link ai profili social (Facebook/Instagram) se esistono.
 - [ ] *(opzionale)* Contenuti utili nel tempo: "come risintonizzare i canali", "cosa fare se il segnale TV squadretta" — portano traffico da ricerche correlate.
 - [ ] *(opzionale)* Tag NFC da banco con il link recensioni: `https://g.page/r/CQoOih4xjnXMEBM/review`
 - [ ] *(opzionale)* **Pannello di amministrazione**: con i dati già in `dati/`, si aggiunge [Sveltia CMS](https://github.com/sveltia/sveltia-cms) su `/admin` per modificare recensioni e cataloghi da browser (anche da telefono) senza toccare i file. ⚠️ Non usare Decap CMS con Netlify Identity/Git Gateway: entrambi sono deprecati.
@@ -131,5 +137,5 @@ Per passare a un dominio proprio:
 
 1. Acquistare il dominio (es. `ilpuntoantennaelettronica.it`).
 2. Netlify → Site settings → Domain management → Add domain, poi impostare i record DNS indicati (HTTPS è automatico).
-3. Sostituire `https://ilpuntoantennaelettronica.netlify.app` con il nuovo dominio in **tutti** i file HTML, `sitemap.xml` e `robots.txt`.
+3. Sostituire `https://ilpuntoantennaelettronica.com` con il nuovo dominio in **tutti** i file HTML, `sitemap.xml` e `robots.txt`.
 4. Aggiornare il link sulla scheda Google Business e creare la nuova proprietà su Search Console (Netlify mantiene un redirect 301 dal vecchio indirizzo, quindi il lavoro di indicizzazione non si perde).
