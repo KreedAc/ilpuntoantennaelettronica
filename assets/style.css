@@ -432,6 +432,19 @@ details.faq summary::after {
 details.faq[open] summary::after { transform: rotate(-135deg); top: 0.7rem; }
 details.faq p { margin-top: 0.8rem; }
 
+/* ---------- Richiamo a un'altra pagina ---------- */
+.rimando {
+  background: var(--bianco);
+  border: 1px solid var(--grigio-bordo);
+  border-left: 4px solid var(--rosso);
+  border-radius: 12px;
+  padding: 1rem 1.2rem;
+  margin: 1.2rem 0 0;
+  line-height: 1.6;
+}
+.rimando strong { color: var(--blu); }
+.rimando a { color: var(--rosso-scuro); font-weight: 650; }
+
 /* ---------- Catalogo prodotti ---------- */
 .titolo-gruppo {
   color: var(--blu);
