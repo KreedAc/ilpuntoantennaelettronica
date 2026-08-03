@@ -177,8 +177,10 @@ def blocco_catalogo(cat):
 
 def sostituisci(testo, nome, contenuto, percorso):
     inizio, fine = f"<!-- GENERATO: {nome} -->", f"<!-- FINE: {nome} -->"
+    # il contenuto fra i marcatori può anche essere assente: è il caso di una
+    # pagina appena creata, dove i due marcatori sono su righe consecutive
     schema = re.compile(
-        re.escape(inizio) + r"\n.*?\n\s*" + re.escape(fine), re.S
+        re.escape(inizio) + r"\n(?:.*?\n)?\s*" + re.escape(fine), re.S
     )
     if not schema.search(testo):
         raise SystemExit(
@@ -202,7 +204,7 @@ def main():
             ("recensioni-fascia", blocco_fascia_recensioni(attivita)),
             ("recensioni-riga", blocco_riga_recensioni(attivita)),
         ]),
-        ("telefonia-internet-lamezia-terme.html", [
+        ("smartphone-ricondizionati-lamezia-terme.html", [
             ("catalogo-smartphone", blocco_catalogo(catalogo)),
         ]),
     ]

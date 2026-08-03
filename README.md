@@ -11,6 +11,7 @@ Sito vetrina statico, ottimizzato per la SEO locale, per **Il Punto Antenna Elet
 | `index.html` | Home page – "antennista e negozio di elettronica a Lamezia Terme" |
 | `antennista-lamezia-terme.html` | Landing SEO – "antennista Lamezia Terme" (con FAQ e dati strutturati FAQPage) |
 | `telefonia-internet-lamezia-terme.html` | Landing SEO – Sky, Sky WiFi, internet casa, telefonia mobile, ricariche |
+| `smartphone-ricondizionati-lamezia-terme.html` | Landing SEO – "smartphone ricondizionati Lamezia Terme", con il catalogo e le FAQ |
 | `luce-gas-lamezia-terme.html` | Landing SEO – consulenza e attivazione contratti luce e gas |
 | `videosorveglianza-lamezia-terme.html` | Landing SEO – videosorveglianza e sistemi di allarme |
 | `negozio-elettronica-lamezia-terme.html` | Landing SEO – "negozio elettronica Lamezia Terme" (catalogo per categorie) |
@@ -49,7 +50,7 @@ Lo script tocca **solo** il testo compreso fra i marcatori, e lascia intatto tut
 | Blocco | Pagina | File dei dati |
 |---|---|---|
 | `recensioni-fascia`, `recensioni-riga` | `index.html` | `dati/attivita.json` |
-| `catalogo-smartphone` | `telefonia-internet-lamezia-terme.html` | `dati/catalogo-smartphone.json` |
+| `catalogo-smartphone` | `smartphone-ricondizionati-lamezia-terme.html` | `dati/catalogo-smartphone.json` |
 
 Il generatore gira **da solo a ogni deploy** (`command` in `netlify.toml`): basta modificare un file in `dati/` e fare push. Usa la sola libreria standard di Python — nessuna dipendenza da installare.
 
