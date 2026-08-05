@@ -170,7 +170,18 @@ def blocco_novita(dati):
             f'\n              <p class="condizioni">{p["condizioni"]}</p>'
             if p.get("condizioni") else ""
         )
-        schede.append(f'''          <article class="novita">
+        if p.get("immagine"):
+            misure = dimensioni(RADICE / p["immagine"])
+            misure = f' width="{misure[0]}" height="{misure[1]}"' if misure else ""
+            poster = (
+                f'\n            <div class="poster"><img src="{e(p["immagine"])}" '
+                f'alt="{e(p.get("immagine_alt", p["titolo"]))}"{misure} '
+                f'loading="lazy" decoding="async"></div>'
+            )
+        else:
+            poster = ""
+
+        schede.append(f'''          <article class="novita">{poster}
             <div class="testo-novita">{etichetta}
               <h3>{e(p["titolo"])}</h3>
               <p>{p["testo"]}</p>{prezzo}{condizioni}

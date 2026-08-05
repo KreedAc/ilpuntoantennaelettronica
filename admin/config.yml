@@ -100,6 +100,21 @@ collections:
               - name: testo
                 label: Testo
                 widget: text
+              - name: immagine
+                label: Locandina
+                hint: >-
+                  Facoltativa. Compare come anteprima a sinistra nella fascia.
+                  Usa la grafica ufficiale del gestore, non ricostruzioni.
+                widget: image
+                choose_url: false
+                media_folder: /assets/promo
+                public_folder: assets/promo
+                required: false
+              - name: immagine_alt
+                label: Descrizione della locandina
+                hint: Serve a chi non vede l'immagine e ai motori di ricerca.
+                widget: string
+                required: false
               - name: prezzo
                 label: Prezzo
                 hint: >-

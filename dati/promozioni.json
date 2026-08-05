@@ -7,9 +7,11 @@
       "pubblico": "Per attività",
       "titolo": "Sky Sport per negozi e uffici",
       "testo": "Tutte le partite di Serie A e Champions League nel tuo locale, con l'abbonamento Sky Business dedicato a negozi, uffici e sale d'attesa. All'attivazione e all'impianto pensiamo noi.",
-      "prezzo": "",
-      "prezzo_pieno": "",
-      "condizioni": "",
+      "immagine": "assets/promo/sky-business-negozi-uffici.webp",
+      "immagine_alt": "Locandina Sky Business: Sky Sport per negozi e uffici, tutte le partite a 34,90 € al mese",
+      "prezzo": "34,90",
+      "prezzo_pieno": "39,90",
+      "condizioni": "al mese, sconto valido con permanenza di 12 mesi. Offerta Sky riservata a negozi e uffici. Info e condizioni complete su <a href=\"https://www.sky.it/business/uffici-aziende\" rel=\"noopener nofollow\" target=\"_blank\">sky.it/business/uffici-aziende</a>.",
       "link": "sky-business-lamezia-terme.html",
       "testo_link": "Scopri l'offerta"
     }
