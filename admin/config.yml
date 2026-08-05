@@ -54,6 +54,80 @@ collections:
                 label: Link alla scheda Google
                 widget: string
 
+  # ----------------------------------------------------------- promozioni
+  - name: promozioni
+    label: Promozioni
+    icon: campaign
+    files:
+      - name: novita
+        label: Fascia novità in home
+        file: dati/promozioni.json
+        icon: local_offer
+        fields:
+          - name: etichetta_sezione
+            label: Titolino sopra la fascia
+            hint: 'Esempio: In evidenza'
+            widget: string
+          - name: promozioni
+            label: Promozioni
+            label_singular: Promozione
+            widget: list
+            collapsed: false
+            summary: '{{fields.titolo}}'
+            fields:
+              - name: id
+                label: Nome interno
+                hint: Serve solo a te per riconoscerla. Non compare sul sito.
+                widget: string
+              - name: attiva
+                label: Mostra sul sito
+                hint: >-
+                  Spegnila quando l'offerta scade. Se le spegni tutte, la fascia
+                  sparisce dalla home e la pagina torna com'era.
+                widget: boolean
+                default: false
+              - name: pubblico
+                label: Etichetta del pubblico
+                hint: >-
+                  Compare come pastiglia blu sopra il titolo. Usala solo quando
+                  serve chiarire a chi è rivolta, per esempio "Per attività".
+                  Lascia vuoto per le offerte rivolte a tutti.
+                widget: string
+                required: false
+              - name: titolo
+                label: Titolo
+                widget: string
+              - name: testo
+                label: Testo
+                widget: text
+              - name: prezzo
+                label: Prezzo
+                hint: >-
+                  Lascia vuoto finché non hai le condizioni definitive: senza
+                  prezzo la promozione funziona lo stesso e invita a chiedere.
+                widget: string
+                required: false
+              - name: prezzo_pieno
+                label: Prezzo prima dello sconto
+                hint: Compare barrato accanto al prezzo. Facoltativo.
+                widget: string
+                required: false
+              - name: condizioni
+                label: Condizioni
+                hint: >-
+                  La riga in piccolo sotto il prezzo. Se indichi un prezzo qui
+                  vanno scritte durata, vincoli e se l'importo è IVA inclusa o
+                  esclusa.
+                widget: string
+                required: false
+              - name: link
+                label: Pagina di destinazione
+                hint: 'Esempio: sky-business-lamezia-terme.html'
+                widget: string
+              - name: testo_link
+                label: Testo del pulsante
+                widget: string
+
   # ------------------------------------------------------------ cataloghi
   - name: cataloghi
     label: Cataloghi

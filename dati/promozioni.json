@@ -1,0 +1,17 @@
+{
+  "etichetta_sezione": "In evidenza",
+  "promozioni": [
+    {
+      "id": "sky-business",
+      "attiva": true,
+      "pubblico": "Per attività",
+      "titolo": "Sky Sport per negozi e uffici",
+      "testo": "Tutte le partite di Serie A e Champions League nel tuo locale, con l'abbonamento Sky Business dedicato a negozi, uffici e sale d'attesa. All'attivazione e all'impianto pensiamo noi.",
+      "prezzo": "",
+      "prezzo_pieno": "",
+      "condizioni": "",
+      "link": "sky-business-lamezia-terme.html",
+      "testo_link": "Scopri l'offerta"
+    }
+  ]
+}

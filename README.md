@@ -12,6 +12,7 @@ Sito vetrina statico, ottimizzato per la SEO locale, per **Il Punto Antenna Elet
 | `antennista-lamezia-terme.html` | Landing SEO – "antennista Lamezia Terme" (con FAQ e dati strutturati FAQPage) |
 | `telefonia-internet-lamezia-terme.html` | Landing SEO – Sky, Sky WiFi, internet casa, telefonia mobile, ricariche |
 | `smartphone-ricondizionati-lamezia-terme.html` | Landing SEO – "smartphone ricondizionati Lamezia Terme", con il catalogo e le FAQ |
+| `sky-business-lamezia-terme.html` | Landing SEO B2B – Sky per negozi, uffici e sale d'attesa |
 | `luce-gas-lamezia-terme.html` | Landing SEO – consulenza e attivazione contratti luce e gas |
 | `videosorveglianza-lamezia-terme.html` | Landing SEO – videosorveglianza e sistemi di allarme |
 | `negozio-elettronica-lamezia-terme.html` | Landing SEO – "negozio elettronica Lamezia Terme" (catalogo per categorie) |
@@ -51,10 +52,13 @@ Lo script tocca **solo** il testo compreso fra i marcatori, e lascia intatto tut
 |---|---|---|
 | `recensioni-fascia`, `recensioni-riga` | `index.html` | `dati/attivita.json` |
 | `catalogo-smartphone` | `smartphone-ricondizionati-lamezia-terme.html` | `dati/catalogo-smartphone.json` |
+| `novita` | `index.html` | `dati/promozioni.json` |
 
 Il generatore gira **da solo a ogni deploy** (`command` in `netlify.toml`): basta modificare un file in `dati/` e fare push. Usa la sola libreria standard di Python — nessuna dipendenza da installare.
 
-Ogni prodotto ha un campo `visibile`: metterlo a `false` lo toglie dal sito **senza perdere i dati**, utile quando un pezzo è esaurito ma tornerà.
+Ogni prodotto ha un campo `visibile`: metterlo a `false` lo toglie dal sito **senza perdere i dati**, utile quando un pezzo è esaurito ma tornerà. Le promozioni funzionano allo stesso modo con il campo `attiva`: **se nessuna è attiva, la fascia novità non viene proprio scritta** e la home torna com'era.
+
+⚠️ **Prezzi nelle promozioni**: il campo `prezzo` va compilato solo quando si hanno le condizioni complete. Se si indica un importo, nel campo `condizioni` vanno durata, vincoli e se è IVA inclusa o esclusa — per le offerte rivolte alle attività i listini sono spesso al netto dell'IVA.
 
 Per aggiungere un catalogo nuovo (TV, condizionatori…): un file `dati/catalogo-xxx.json`, i marcatori nella pagina e tre righe in `genera.py`. Poi aggiungerlo anche in `admin/config.yml` per vederlo nel pannello.
 

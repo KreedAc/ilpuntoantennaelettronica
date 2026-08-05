@@ -138,6 +138,58 @@ def scheda_prodotto(p):
           </article>'''
 
 
+def blocco_novita(dati):
+    """Fascia delle promozioni in home.
+
+    Restituisce stringa vuota se non c'è nessuna promozione attiva: in quel
+    caso la sezione non viene proprio scritta e la pagina torna com'era.
+    """
+    attive = [p for p in dati["promozioni"] if p.get("attiva")]
+    if not attive:
+        return ""
+
+    e = html.escape
+    schede = []
+    for p in attive:
+        etichetta = (
+            f'\n            <span class="etichetta">{e(p["pubblico"])}</span>'
+            if p.get("pubblico") else ""
+        )
+        # il prezzo compare solo quando è stato compilato
+        if p.get("prezzo"):
+            pieno = (
+                f'<s>{p["prezzo_pieno"]}&nbsp;€</s> ' if p.get("prezzo_pieno") else ""
+            )
+            prezzo = (
+                f'\n              <p class="prezzo-novita">{pieno}'
+                f'<strong>{p["prezzo"]}&nbsp;€</strong></p>'
+            )
+        else:
+            prezzo = ""
+        condizioni = (
+            f'\n              <p class="condizioni">{p["condizioni"]}</p>'
+            if p.get("condizioni") else ""
+        )
+        schede.append(f'''          <article class="novita">
+            <div class="testo-novita">{etichetta}
+              <h3>{e(p["titolo"])}</h3>
+              <p>{p["testo"]}</p>{prezzo}{condizioni}
+            </div>
+            <a class="link-novita" href="{e(p["link"])}">{e(p.get("testo_link", "Scopri di più"))} <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
+          </article>''')
+
+    return "\n".join([
+        '    <section class="fascia-novita" aria-label="Novità e promozioni">',
+        '      <div class="container">',
+        f'        <p class="etichetta-sezione">{e(dati["etichetta_sezione"])}</p>',
+        '        <div class="griglia-novita">',
+        *schede,
+        "        </div>",
+        "      </div>",
+        "    </section>",
+    ])
+
+
 def blocco_catalogo(cat):
     msg = "Salve! Vorrei sapere quali smartphone ricondizionati avete disponibili."
     link_wa = f"https://wa.me/{TELEFONO}?text=" + urllib.parse.quote(msg, safe="")
@@ -198,11 +250,13 @@ def main():
 
     attivita = leggi("attivita.json")
     catalogo = leggi("catalogo-smartphone.json")
+    promozioni = leggi("promozioni.json")
 
     lavori = [
         ("index.html", [
             ("recensioni-fascia", blocco_fascia_recensioni(attivita)),
             ("recensioni-riga", blocco_riga_recensioni(attivita)),
+            ("novita", blocco_novita(promozioni)),
         ]),
         ("smartphone-ricondizionati-lamezia-terme.html", [
             ("catalogo-smartphone", blocco_catalogo(catalogo)),

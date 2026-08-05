@@ -157,6 +157,19 @@ nav.principale a[aria-current="page"] {
 }
 .hero .colonna-cta { flex-direction: row; gap: 0.9rem; }
 
+.etichetta-hero {
+  display: inline-block;
+  margin-bottom: 1rem;
+  padding: 0.25rem 0.8rem;
+  border-radius: 999px;
+  background: var(--blu);
+  color: var(--bianco);
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
 /* Riga fiducia sotto i pulsanti dell'hero */
 .fiducia {
   display: flex;
@@ -432,6 +445,105 @@ details.faq summary::after {
 details.faq[open] summary::after { transform: rotate(-135deg); top: 0.7rem; }
 details.faq p { margin-top: 0.8rem; }
 
+/* ---------- Fascia novità e promozioni ---------- */
+.fascia-novita { padding: 0 0 1rem; }
+.etichetta-sezione {
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--grigio-testo);
+  margin-bottom: 0.7rem;
+}
+.griglia-novita {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr));
+}
+.novita {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.4rem;
+  flex-wrap: wrap;
+  background: var(--bianco);
+  border: 1.5px solid rgba(46, 49, 146, 0.28);
+  border-radius: var(--radius);
+  padding: 1.4rem 1.6rem;
+  box-shadow: 0 2px 14px rgba(46, 49, 146, 0.07);
+  cursor: pointer;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+}
+.novita:hover {
+  transform: translateY(-2px);
+  border-color: var(--blu);
+  box-shadow: 0 10px 26px rgba(46, 49, 146, 0.13);
+}
+.novita:focus-within {
+  outline: 2px solid var(--blu);
+  outline-offset: 3px;
+}
+.novita .testo-novita { flex: 1 1 320px; }
+.novita .etichetta {
+  display: inline-block;
+  margin-bottom: 0.5rem;
+  padding: 0.2rem 0.7rem;
+  border-radius: 999px;
+  background: var(--blu);
+  color: var(--bianco);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.novita h3 {
+  color: var(--blu);
+  font-size: 1.2rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin-bottom: 0.35rem;
+}
+.novita p { font-size: 0.98rem; line-height: 1.6; }
+.novita .prezzo-novita {
+  margin-top: 0.6rem;
+  display: flex;
+  align-items: baseline;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+}
+.novita .prezzo-novita s { color: #8a93a8; font-size: 0.95rem; }
+.novita .prezzo-novita strong {
+  color: var(--rosso-scuro);
+  font-size: 1.35rem;
+  font-weight: 750;
+  letter-spacing: -0.02em;
+}
+.novita .condizioni { margin-top: 0.35rem; font-size: 0.82rem; color: #7b849b; }
+.novita a.link-novita {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex-shrink: 0;
+  padding: 0.75rem 1.3rem;
+  border-radius: 12px;
+  border: 1.5px solid var(--grigio-bordo);
+  background: var(--bianco);
+  color: var(--blu);
+  font-weight: 650;
+  font-size: 0.95rem;
+  text-decoration: none;
+  transition: border-color 0.18s ease, gap 0.18s ease;
+}
+.novita:hover a.link-novita { border-color: var(--blu); gap: 0.7rem; }
+.novita a.link-novita svg { color: var(--rosso); flex-shrink: 0; }
+.novita a.link-novita::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: var(--radius);
+}
+
 /* ---------- Richiamo a un'altra pagina ---------- */
 .rimando {
   background: var(--bianco);
@@ -650,6 +762,10 @@ footer.sito li.social svg { flex-shrink: 0; }
   .griglia { gap: 1.1rem; }
   .scheda { padding: 1.8rem 1.6rem 1.6rem; }
   .articolo h2 { margin-top: 2.6rem; }
+
+  .novita { padding: 1.2rem 1.2rem 1.3rem; gap: 1rem; }
+  .novita h3 { font-size: 1.1rem; }
+  .novita a.link-novita { width: 100%; justify-content: center; }
 
   .griglia-prodotti {
     grid-template-columns: repeat(2, minmax(0, 1fr));
