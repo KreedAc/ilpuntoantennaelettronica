@@ -86,6 +86,10 @@ Il token resta nel browser di chi lo inserisce: non è nel repository e non è p
 
 **Convenzioni di stile**: fondo pagina grigio chiarissimo (`#f5f7fa`) con schede e sezioni alternate bianche; carattere Inter; icone SVG a tratto da 24px, spessore 1.8, che ereditano il colore dal contenitore.
 
+**Indirizzi delle pagine**: Netlify serve ogni pagina sia come `/pagina` sia come `/pagina.html`, e Google aveva indicizzato entrambe le forme. I `[[redirects]]` in `netlify.toml` reindirizzano con un 301 la forma senza estensione verso quella con `.html`, che è quella indicata dai tag `canonical` e dalla sitemap. **Aggiungendo una pagina nuova va aggiunta anche la sua riga di reindirizzamento.**
+
+**Titoli e descrizioni**: Google mostra circa 60 caratteri di titolo e 155 di descrizione, poi taglia. Tenersi entro quei limiti, con la parola chiave all'inizio.
+
 **Nota sulla cache**: `netlify.toml` imposta `Cache-Control: max-age=0`, così ogni modifica pubblicata è visibile all'istante. Il CSS è linkato con un parametro di versione (`style.css?v=N`): **incrementare N in tutte le pagine a ogni modifica dello stile**, per forzare l'aggiornamento sui browser di chi ha già visitato il sito.
 
 ## Dati dell'attività (verificati sulla scheda Google Business, luglio 2026)

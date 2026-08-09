@@ -24,3 +24,62 @@
   [headers.values]
     X-Robots-Tag = "noindex, nofollow"
     X-Frame-Options = "DENY"
+
+# Netlify serve ogni pagina anche senza estensione, e Google ha finito per
+# indicizzare entrambe le forme dello stesso indirizzo. I tag canonical
+# indicano la forma con .html: questi reindirizzamenti fanno dire al server
+# la stessa cosa, così i due indirizzi si fondono in uno solo.
+
+[[redirects]]
+  from = "/antennista-lamezia-terme"
+  to = "/antennista-lamezia-terme.html"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/contatti"
+  to = "/contatti.html"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/luce-gas-lamezia-terme"
+  to = "/luce-gas-lamezia-terme.html"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/negozio-elettronica-lamezia-terme"
+  to = "/negozio-elettronica-lamezia-terme.html"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/privacy"
+  to = "/privacy.html"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/sky-business-lamezia-terme"
+  to = "/sky-business-lamezia-terme.html"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/smartphone-ricondizionati-lamezia-terme"
+  to = "/smartphone-ricondizionati-lamezia-terme.html"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/telefonia-internet-lamezia-terme"
+  to = "/telefonia-internet-lamezia-terme.html"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/videosorveglianza-lamezia-terme"
+  to = "/videosorveglianza-lamezia-terme.html"
+  status = 301
+  force = true
