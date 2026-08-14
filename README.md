@@ -74,10 +74,12 @@ Il modulo di `collabora-con-noi.html` usa **Netlify Forms**: nessun server, ness
 
 Dopo l'invio l'utente arriva su `grazie.html` (`action="/grazie.html"`).
 
-⚠️ **Da fare una volta sola nel pannello Netlify**, altrimenti gli invii arrivano ma nessuno se ne accorge:
+⚠️ **Da fare una volta sola nel pannello Netlify**, nell'ordine, altrimenti gli invii non vengono nemmeno raccolti:
 
-1. *Forms* → verificare che il modulo `collabora` sia stato rilevato dopo il primo deploy
-2. *Forms → Settings → Form notifications* → aggiungere una notifica email verso `ilpuntoantennaelettr@libero.it`
+1. **Forms → Enable form detection.** Il rilevamento dei moduli non è attivo di serie: senza, Netlify non guarda nemmeno l'HTML.
+2. **Fare un nuovo deploy** (*Deploys → Trigger deploy*): il rilevamento parte dal deploy successivo all'attivazione, non da quelli già fatti.
+3. In *Forms* deve comparire il modulo **`collabora`**. Se non c'è, i due passi sopra non sono andati a buon fine.
+4. **Project configuration → Notifications → Emails and webhooks → Form submission notifications** → aggiungere una notifica email verso `ilpuntoantennaelettr@libero.it`.
 
 I nomi dei campi sono in italiano leggibile (`Nome e cognome`, `Zona`, `Tipo di collaborazione`…) perché è così che compaiono nell'email di notifica.
 
