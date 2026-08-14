@@ -445,6 +445,123 @@ details.faq summary::after {
 details.faq[open] summary::after { transform: rotate(-135deg); top: 0.7rem; }
 details.faq p { margin-top: 0.8rem; }
 
+/* ---------- Moduli ---------- */
+.modulo-pagina {
+  display: grid;
+  gap: 2rem;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr));
+  align-items: start;
+}
+.modulo-intro h2 {
+  color: var(--blu);
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin-bottom: 0.8rem;
+}
+.modulo-intro p + p { margin-top: 0.9rem; }
+.modulo-intro ul { margin: 0.9rem 0 0 1.3rem; }
+.modulo-intro li + li { margin-top: 0.4rem; }
+.modulo-intro a { color: var(--rosso-scuro); }
+
+.modulo {
+  background: var(--bianco);
+  border: 1px solid var(--grigio-bordo);
+  border-radius: var(--radius);
+  padding: 1.8rem 1.7rem;
+  box-shadow: var(--ombra);
+}
+.campo { margin-bottom: 1.1rem; }
+.campo-doppio {
+  display: grid;
+  gap: 0 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 190px), 1fr));
+}
+.campo > label:not(.scelta),
+.gruppo-scelte legend {
+  display: block;
+  margin-bottom: 0.4rem;
+  font-size: 0.92rem;
+  font-weight: 650;
+  color: var(--blu);
+}
+.obbl { color: var(--rosso); }
+.facolt { font-weight: 400; color: #8a93a8; }
+
+.modulo input[type="text"],
+.modulo input[type="tel"],
+.modulo input[type="email"],
+.modulo select,
+.modulo textarea {
+  width: 100%;
+  padding: 0.72rem 0.9rem;
+  border: 1.5px solid var(--grigio-bordo);
+  border-radius: 10px;
+  background: var(--bianco);
+  font: inherit;
+  font-size: 0.98rem;
+  color: var(--grigio-testo);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.modulo textarea { resize: vertical; line-height: 1.55; }
+.modulo select { appearance: none; cursor: pointer; padding-right: 2.4rem;
+  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%234a5568' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.85rem center;
+}
+.modulo input:focus,
+.modulo select:focus,
+.modulo textarea:focus {
+  outline: none;
+  border-color: var(--blu);
+  box-shadow: 0 0 0 3px rgba(46, 49, 146, 0.13);
+}
+.modulo ::placeholder { color: #a4abbd; }
+
+.gruppo-scelte { border: 0; padding: 0; margin-bottom: 1.2rem; }
+.gruppo-scelte legend { padding: 0; }
+.scelta {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.55rem;
+  padding: 0.32rem 0;
+  font-size: 0.94rem;
+  line-height: 1.5;
+  cursor: pointer;
+}
+.scelta input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  margin-top: 0.15rem;
+  flex-shrink: 0;
+  accent-color: var(--blu);
+  cursor: pointer;
+}
+.consenso {
+  margin-top: 1.4rem;
+  padding: 0.9rem 1rem;
+  background: var(--grigio-chiaro);
+  border-radius: 10px;
+}
+.consenso a { color: var(--rosso-scuro); }
+.modulo .invio { width: 100%; margin-top: 1.2rem; }
+.nota-modulo { margin-top: 0.8rem; font-size: 0.84rem; color: #8a93a8; text-align: center; }
+
+/* campo esca per i robot: presente nel codice, invisibile e non raggiungibile */
+.campo-esca { position: absolute; left: -9999px; opacity: 0; height: 0; overflow: hidden; }
+
+.segno-ok {
+  width: 62px;
+  height: 62px;
+  margin: 0 auto 1.4rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: rgba(18, 140, 62, 0.12);
+  color: #128c3e;
+}
+
 /* ---------- Fascia novità e promozioni ---------- */
 .fascia-novita { padding: 0 0 1rem; }
 .etichetta-sezione {

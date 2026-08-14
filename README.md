@@ -13,6 +13,8 @@ Sito vetrina statico, ottimizzato per la SEO locale, per **Il Punto Antenna Elet
 | `telefonia-internet-lamezia-terme.html` | Landing SEO – Sky, Sky WiFi, internet casa, telefonia mobile, ricariche |
 | `smartphone-ricondizionati-lamezia-terme.html` | Landing SEO – "smartphone ricondizionati Lamezia Terme", con il catalogo e le FAQ |
 | `sky-business-lamezia-terme.html` | Landing SEO B2B – Sky per negozi, uffici e sale d'attesa |
+| `collabora-con-noi.html` | Modulo per proposte di collaborazione (Netlify Forms) |
+| `grazie.html` | Pagina di conferma dopo l'invio del modulo (`noindex`) |
 | `luce-gas-lamezia-terme.html` | Landing SEO – consulenza e attivazione contratti luce e gas |
 | `videosorveglianza-lamezia-terme.html` | Landing SEO – videosorveglianza e sistemi di allarme |
 | `negozio-elettronica-lamezia-terme.html` | Landing SEO – "negozio elettronica Lamezia Terme" (catalogo per categorie) |
@@ -61,6 +63,23 @@ Ogni prodotto ha un campo `visibile`: metterlo a `false` lo toglie dal sito **se
 ⚠️ **Prezzi nelle promozioni**: il campo `prezzo` va compilato solo quando si hanno le condizioni complete. Se si indica un importo, nel campo `condizioni` vanno durata, vincoli e se è IVA inclusa o esclusa — per le offerte rivolte alle attività i listini sono spesso al netto dell'IVA.
 
 Per aggiungere un catalogo nuovo (TV, condizionatori…): un file `dati/catalogo-xxx.json`, i marcatori nella pagina e tre righe in `genera.py`. Poi aggiungerlo anche in `admin/config.yml` per vederlo nel pannello.
+
+## Modulo di collaborazione
+
+Il modulo di `collabora-con-noi.html` usa **Netlify Forms**: nessun server, nessun JavaScript, gratuito fino a 100 invii al mese. Perché funzioni servono tre cose già presenti nell'HTML:
+
+- `data-netlify="true"` sul tag `<form>`
+- un campo nascosto `<input type="hidden" name="form-name" value="collabora">` con lo stesso valore dell'attributo `name` del modulo
+- `data-netlify-honeypot="campo-esca"` più il campo `.campo-esca`, nascosto via CSS: è l'esca che intercetta gli invii automatici
+
+Dopo l'invio l'utente arriva su `grazie.html` (`action="/grazie.html"`).
+
+⚠️ **Da fare una volta sola nel pannello Netlify**, altrimenti gli invii arrivano ma nessuno se ne accorge:
+
+1. *Forms* → verificare che il modulo `collabora` sia stato rilevato dopo il primo deploy
+2. *Forms → Settings → Form notifications* → aggiungere una notifica email verso `ilpuntoantennaelettr@libero.it`
+
+I nomi dei campi sono in italiano leggibile (`Nome e cognome`, `Zona`, `Tipo di collaborazione`…) perché è così che compaiono nell'email di notifica.
 
 ## Pannello di amministrazione
 
@@ -135,6 +154,8 @@ Se cambiano, aggiornare le pagine HTML **e** il JSON-LD in `index.html` (`openin
 - [ ] **Mappa di Google in `contatti.html`**: installa cookie di terze parti. Per evitare il banner di consenso, sostituirla con un'immagine statica che apre Google Maps al clic.
 - [ ] *(opzionale)* Contenuti utili nel tempo: "come risintonizzare i canali", "cosa fare se il segnale TV squadretta" — portano traffico da ricerche correlate.
 - [ ] *(opzionale)* Tag NFC da banco con il link recensioni: `https://g.page/r/CQoOih4xjnXMEBM/review`
+- [ ] **Notifica email del modulo** da attivare nel pannello Netlify (vedi sopra) — senza, le richieste restano solo nel pannello.
+- [ ] **Autorizzazione dei mandanti**: prima di promuovere il modulo, verificare con Sky, con gli operatori telefonici e con i fornitori di energia se e come è ammesso portare collaboratori sotto il proprio codice. Molti contratti da dealer vietano il sub-mandato.
 - [ ] *(opzionale)* **Pannello di amministrazione**: con i dati già in `dati/`, si aggiunge [Sveltia CMS](https://github.com/sveltia/sveltia-cms) su `/admin` per modificare recensioni e cataloghi da browser (anche da telefono) senza toccare i file. ⚠️ Non usare Decap CMS con Netlify Identity/Git Gateway: entrambi sono deprecati.
 
 ## Pubblicazione e dominio

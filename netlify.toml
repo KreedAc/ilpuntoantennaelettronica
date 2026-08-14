@@ -83,3 +83,9 @@
   to = "/videosorveglianza-lamezia-terme.html"
   status = 301
   force = true
+
+[[redirects]]
+  from = "/collabora-con-noi"
+  to = "/collabora-con-noi.html"
+  status = 301
+  force = true
