@@ -861,7 +861,7 @@ footer.sito li.social svg { flex-shrink: 0; }
 .footer-legale .firma a:hover { border-bottom-color: var(--bianco); }
 
 /* ---------- Mobile ---------- */
-@media (max-width: 940px) {
+@media (max-width: 1000px) {
   header.sito .container { flex-wrap: wrap; padding: 0.7rem 0; }
   .logo img { max-width: min(300px, 62vw); height: auto; }
   .hamburger { display: flex; }
