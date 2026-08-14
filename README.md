@@ -13,7 +13,7 @@ Sito vetrina statico, ottimizzato per la SEO locale, per **Il Punto Antenna Elet
 | `telefonia-internet-lamezia-terme.html` | Landing SEO – Sky, Sky WiFi, internet casa, telefonia mobile, ricariche |
 | `smartphone-ricondizionati-lamezia-terme.html` | Landing SEO – "smartphone ricondizionati Lamezia Terme", con il catalogo e le FAQ |
 | `sky-business-lamezia-terme.html` | Landing SEO B2B – Sky per negozi, uffici e sale d'attesa |
-| `collabora-con-noi.html` | Modulo per proposte di collaborazione (Netlify Forms) |
+| `collabora-con-noi.html` | Modulo per proposte di collaborazione (Netlify Forms), volutamente senza testi introduttivi |
 | `grazie.html` | Pagina di conferma dopo l'invio del modulo (`noindex`) |
 | `luce-gas-lamezia-terme.html` | Landing SEO – consulenza e attivazione contratti luce e gas |
 | `videosorveglianza-lamezia-terme.html` | Landing SEO – videosorveglianza e sistemi di allarme |

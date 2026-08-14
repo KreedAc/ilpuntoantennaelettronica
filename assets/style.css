@@ -446,25 +446,10 @@ details.faq[open] summary::after { transform: rotate(-135deg); top: 0.7rem; }
 details.faq p { margin-top: 0.8rem; }
 
 /* ---------- Moduli ---------- */
-.modulo-pagina {
-  display: grid;
-  gap: 2rem;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr));
-  align-items: start;
-}
-.modulo-intro h2 {
-  color: var(--blu);
-  font-size: 1.5rem;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  margin-bottom: 0.8rem;
-}
-.modulo-intro p + p { margin-top: 0.9rem; }
-.modulo-intro ul { margin: 0.9rem 0 0 1.3rem; }
-.modulo-intro li + li { margin-top: 0.4rem; }
-.modulo-intro a { color: var(--rosso-scuro); }
 
 .modulo {
+  max-width: 640px;
+  margin: 0 auto;
   background: var(--bianco);
   border: 1px solid var(--grigio-bordo);
   border-radius: var(--radius);
