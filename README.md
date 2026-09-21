@@ -220,9 +220,13 @@ nessuno scorrimento orizzontale a 390 px, elementi toccabili da almeno 44 px.
 - [ ] `npm run schema` e `npm run utenti`
 - [ ] Generare le chiavi VAPID e impostarle su Netlify
 - [ ] Far installare il pannello sulla schermata Home del telefono dell'installatore
-- [ ] **Aggiornare l'informativa privacy**: `privacy.html` non copre ancora questo
-      trattamento (dati dei clienti per la gestione degli interventi, conservazione,
-      Neon come responsabile del trattamento)
+- [x] **Informativa privacy aggiornata** (21 settembre 2026): punto 2.5 sull'agenda
+      degli interventi e sulle notifiche, finalità e base giuridica al punto 3,
+      conservazione di 24 mesi al punto 4, Neon come responsabile al punto 5,
+      server europei al punto 6, misure di sicurezza al punto 8
+
+> **Se cambi fornitore o regione del database**, vanno riallineati i punti 2.5, 5 e 6
+> di `privacy.html`: citano Neon per nome e dichiarano che i server sono nell'Unione europea.
 
 ## Dati dell'attività (verificati sulla scheda Google Business, luglio 2026)
 
