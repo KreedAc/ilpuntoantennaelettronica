@@ -11,14 +11,24 @@
 -- La password non è mai in chiaro; `password_hash` contiene l'algoritmo, i
 -- parametri, il sale e il digest (vedi netlify/lib/password.mjs).
 
+-- `deve_cambiare_password` a true obbliga l'utente a sceglierne una propria al
+-- primo accesso: finché non lo fa, il pannello mostra soltanto quella
+-- schermata e l'API rifiuta ogni altra richiesta. Serve quando l'account
+-- viene creato da qualcun altro con una password provvisoria.
+
 CREATE TABLE IF NOT EXISTS utenti (
-  id            SERIAL PRIMARY KEY,
-  email         TEXT        NOT NULL UNIQUE,
-  password_hash TEXT        NOT NULL,
-  nome          TEXT        NOT NULL,
-  ruolo         TEXT        NOT NULL CHECK (ruolo IN ('admin', 'installatore')),
-  creato_il     TIMESTAMPTZ NOT NULL DEFAULT now()
+  id                     SERIAL PRIMARY KEY,
+  email                  TEXT        NOT NULL UNIQUE,
+  password_hash          TEXT        NOT NULL,
+  nome                   TEXT        NOT NULL,
+  ruolo                  TEXT        NOT NULL CHECK (ruolo IN ('admin', 'installatore')),
+  deve_cambiare_password BOOLEAN     NOT NULL DEFAULT false,
+  creato_il              TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- Per i database creati prima che questa colonna esistesse.
+ALTER TABLE utenti
+  ADD COLUMN IF NOT EXISTS deve_cambiare_password BOOLEAN NOT NULL DEFAULT false;
 
 -- Il confronto delle email è sempre in minuscolo.
 CREATE UNIQUE INDEX IF NOT EXISTS utenti_email_minuscola

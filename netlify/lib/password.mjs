@@ -21,6 +21,9 @@ const P = 1;
 const LUNGHEZZA = 32;
 const MAXMEM = 64 * 1024 * 1024;
 
+/** Lunghezza minima accettata. Una password corta vanifica qualunque algoritmo. */
+export const LUNGHEZZA_MINIMA = 10;
+
 /** Restituisce la stringa da salvare in `utenti.password_hash`. */
 export async function cifra(password) {
   const sale = randomBytes(16);

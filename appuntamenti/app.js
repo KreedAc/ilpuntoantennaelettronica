@@ -41,6 +41,7 @@ const ICONE = {
   telefono: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 16.9v3a2 2 0 01-2.2 2 19.8 19.8 0 01-8.6-3.1 19.5 19.5 0 01-6-6A19.8 19.8 0 012.1 4.2 2 2 0 014.1 2h3a2 2 0 012 1.7c.1 1 .3 1.9.6 2.8a2 2 0 01-.5 2.1L8.1 9.7a16 16 0 006 6l1.1-1.1a2 2 0 012.1-.5c.9.3 1.8.5 2.8.6a2 2 0 011.9 2.1z"/></svg>',
   posizione:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 1116 0z"/><circle cx="12" cy="10" r="3"/></svg>',
   campana:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 01-3.4 0"/></svg>',
+  chiave:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>',
 };
 
 // ---------------------------------------------------------------------------
@@ -125,6 +126,7 @@ async function api(percorso, { metodo = 'GET', corpo } = {}) {
     throw Object.assign(new Error(dati?.errore ?? 'Errore imprevisto. Riprova.'), {
       stato: risposta.status,
       campi: dati?.campi ?? null,
+      cambiaPassword: dati?.cambiaPassword === true,
     });
   }
   return dati;
@@ -226,6 +228,86 @@ function vistaAccesso(messaggio) {
   );
 }
 
+// ---------------------------------------------------------------------------
+// Cambio della password
+// ---------------------------------------------------------------------------
+
+function vistaCambioPassword({ obbligatorio = false } = {}) {
+  const avviso = el('p', { class: 'avviso', role: 'alert', hidden: true });
+  const fatto = el('p', { class: 'avviso informativo', role: 'status', hidden: true });
+
+  const campo = (nome, etichetta, autocomplete) =>
+    el('label', { class: 'campo', 'data-campo': nome },
+      el('span', { class: 'etichetta', testo: etichetta }),
+      el('input', { type: 'password', name: nome, autocomplete, required: true }));
+
+  const salva = el('button', { class: 'pulsante primario', type: 'submit', testo: 'Cambia password' });
+
+  const modulo = el('form', { novalidate: true, class: 'modulo-stretto' },
+    el('h1', { testo: obbligatorio ? 'Scegli la tua password' : 'Cambia password' }),
+    obbligatorio
+      ? el('p', { class: 'introduzione', testo: 'Il tuo account è stato creato con una password provvisoria. Prima di entrare nell’agenda devi sceglierne una tua, che sappia soltanto tu.' })
+      : el('p', { class: 'introduzione', testo: 'Dopo il cambio resterai collegato solo su questo dispositivo: gli altri dovranno accedere di nuovo.' }),
+    avviso,
+    fatto,
+    campo('attuale', obbligatorio ? 'Password provvisoria' : 'Password attuale', 'current-password'),
+    campo('nuova', 'Nuova password', 'new-password'),
+    el('p', { class: 'aiuto', testo: 'Almeno 10 caratteri. Evita qualcosa di indovinabile come il nome del negozio o una data.' }),
+    campo('ripeti', 'Ripeti la nuova password', 'new-password'),
+    el('div', { class: 'bottoni-riga' },
+      !obbligatorio && el('button', {
+        class: 'pulsante', type: 'button', testo: 'Annulla',
+        onclick: () => vai(rottaPredefinita(), { sostituisci: true }),
+      }),
+      salva,
+    ),
+    obbligatorio
+      ? el('p', { class: 'aiuto' },
+          el('button', { class: 'come-link', type: 'button', testo: 'Esci', onclick: esci }),
+          ' se preferisci farlo in un altro momento.')
+      : null,
+  );
+
+  modulo.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    avviso.hidden = true;
+    fatto.hidden = true;
+    for (const c of modulo.querySelectorAll('[data-campo]')) {
+      c.removeAttribute('data-errore');
+      c.querySelector('.errore-campo')?.remove();
+    }
+
+    // Il controllo che le due nuove coincidano si fa qui: al server non
+    // serve saperlo, e così l'errore compare subito.
+    if (modulo.elements.nuova.value !== modulo.elements.ripeti.value) {
+      const c = modulo.querySelector('[data-campo="ripeti"]');
+      c.setAttribute('data-errore', '');
+      c.append(el('span', { class: 'errore-campo', testo: 'Le due password non coincidono' }));
+      modulo.elements.ripeti.focus();
+      return;
+    }
+
+    salva.disabled = true;
+    salva.textContent = 'Salvataggio…';
+    try {
+      await api('/password', {
+        metodo: 'POST',
+        corpo: { attuale: modulo.elements.attuale.value, nuova: modulo.elements.nuova.value },
+      });
+      stato.utente.deveCambiarePassword = false;
+      fatto.textContent = 'Password cambiata.';
+      fatto.hidden = false;
+      setTimeout(() => vai(rottaPredefinita(), { sostituisci: true }), 700);
+    } catch (errore) {
+      mostraErrori(modulo, errore, avviso);
+      salva.disabled = false;
+      salva.textContent = 'Cambia password';
+    }
+  });
+
+  return el('div', { class: 'pagina-stretta' }, modulo);
+}
+
 async function esci() {
   try { await api('/logout', { metodo: 'POST' }); } catch { /* usciamo comunque */ }
   stato.utente = null;
@@ -262,6 +344,10 @@ function vistaAgenda(inizioSettimana) {
     el('span', { class: 'sezione', testo: 'Appuntamenti' }),
     el('div', { class: 'destra' },
       el('span', { class: 'chi', testo: `${stato.utente.nome} · Amministratore` }),
+      el('button', {
+        class: 'pulsante', type: 'button', testo: 'Cambia password',
+        onclick: () => vai({ vista: 'password' }),
+      }),
       el('button', { class: 'pulsante', type: 'button', testo: 'Esci', onclick: esci }),
     ),
   );
@@ -676,7 +762,14 @@ function avvisoVolante(messaggio) {
 function testaInstallatore() {
   return el('header', { class: 'testa-installatore' },
     el('span', { class: 'nome', testo: 'Il Punto Antenna' }),
-    el('button', { class: 'pulsante esci', type: 'button', testo: 'Esci', onclick: esci }),
+    el('div', { class: 'azioni' },
+      el('button', {
+        class: 'pulsante chiaro icona', type: 'button', icona: 'chiave',
+        'aria-label': 'Cambia password',
+        onclick: () => vai({ vista: 'password' }),
+      }),
+      el('button', { class: 'pulsante chiaro', type: 'button', testo: 'Esci', onclick: esci }),
+    ),
   );
 }
 
@@ -958,6 +1051,18 @@ async function disegna() {
     return;
   }
 
+  // Password provvisoria: non si va da nessun'altra parte finché non ne sceglie
+  // una sua. Lo stesso blocco è ripetuto nell'API, che rifiuta ogni richiesta.
+  if (stato.utente.deveCambiarePassword) {
+    sostituisci(vistaCambioPassword({ obbligatorio: true }));
+    return;
+  }
+
+  if (r.vista === 'password') {
+    sostituisci(vistaCambioPassword());
+    return;
+  }
+
   // Nessuna vista nell'indirizzo: portiamo l'utente dove gli compete.
   if (!r.vista) {
     vai(rottaPredefinita(), { sostituisci: true });
@@ -996,6 +1101,11 @@ async function disegna() {
     if (e.stato === 401) {
       stato.utente = null;
       sostituisci(vistaAccesso('La sessione è scaduta. Accedi di nuovo.'));
+      return;
+    }
+    if (e.cambiaPassword) {
+      stato.utente.deveCambiarePassword = true;
+      sostituisci(vistaCambioPassword({ obbligatorio: true }));
       return;
     }
     if (e.stato === 404) {

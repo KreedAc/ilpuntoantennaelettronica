@@ -13,8 +13,11 @@
 //     con il contenuto della richiesta.
 
 import { sql } from '../lib/db.mjs';
-import { utenteCollegato, apriSessione, chiudiSessione, scadenzeDaRipulire } from '../lib/sessione.mjs';
-import { verifica, bruciaTempo } from '../lib/password.mjs';
+import {
+  utenteCollegato, apriSessione, chiudiSessione, scadenzeDaRipulire,
+  improntaSessioneCorrente,
+} from '../lib/sessione.mjs';
+import { verifica, cifra, bruciaTempo, LUNGHEZZA_MINIMA } from '../lib/password.mjs';
 import { avvisaInstallatori, chiavePubblica } from '../lib/push.mjs';
 import {
   FASCE, ORA_INIZIO, ORA_FINE, PASSO_MINUTI,
@@ -216,11 +219,66 @@ async function postLogin(req) {
   const cookie = await apriSessione(utente.id);
   await scadenzeDaRipulire();
 
-  return risposta(
-    { utente: { nome: utente.nome, email: utente.email, ruolo: utente.ruolo } },
-    200,
-    { 'Set-Cookie': cookie },
-  );
+  return risposta({ utente: perIlPannello(utente) }, 200, { 'Set-Cookie': cookie });
+}
+
+/** I dati dell'utente che il browser può conoscere. Mai il digest della password. */
+function perIlPannello(utente) {
+  return {
+    nome: utente.nome,
+    email: utente.email,
+    ruolo: utente.ruolo,
+    deveCambiarePassword: utente.deve_cambiare_password === true,
+  };
+}
+
+/**
+ * Cambio della password, da parte dell'utente stesso.
+ * Serve anche a chiudere il primo accesso, quando l'account è stato creato da
+ * qualcun altro con una password provvisoria.
+ */
+async function postPassword(req, utente) {
+  const corpo = await leggiJson(req);
+  const attuale = String(corpo?.attuale ?? '');
+  const nuova = String(corpo?.nuova ?? '');
+
+  const righe = await sql()`SELECT password_hash FROM utenti WHERE id = ${utente.id} LIMIT 1`;
+  if (!righe[0] || !(await verifica(attuale, righe[0].password_hash))) {
+    return risposta(
+      { errore: 'La password attuale non è corretta', campi: { attuale: 'Password non corretta' } },
+      400,
+    );
+  }
+  if (nuova.length < LUNGHEZZA_MINIMA) {
+    return risposta(
+      { errore: 'La nuova password è troppo corta',
+        campi: { nuova: `Servono almeno ${LUNGHEZZA_MINIMA} caratteri` } },
+      400,
+    );
+  }
+  if (nuova === attuale) {
+    return risposta(
+      { errore: 'La nuova password deve essere diversa da quella attuale',
+        campi: { nuova: 'Dev\'essere diversa da quella attuale' } },
+      400,
+    );
+  }
+
+  const database = sql();
+  await database`
+    UPDATE utenti
+    SET password_hash = ${await cifra(nuova)}, deve_cambiare_password = false
+    WHERE id = ${utente.id}
+  `;
+
+  // Chi conosceva la vecchia password viene disconnesso ovunque; resta aperta
+  // solo la sessione da cui si sta operando.
+  const corrente = improntaSessioneCorrente(req);
+  await database`
+    DELETE FROM sessioni WHERE utente_id = ${utente.id} AND token_hash <> ${corrente}
+  `;
+
+  return risposta({ cambiata: true });
 }
 
 async function postLogout(req) {
@@ -457,12 +515,24 @@ export default async (req) => {
     if (!utente) return errore('Non autenticato', 401);
 
     if (percorso === '/sessione' && metodo === 'GET') {
-      return risposta({ utente: { nome: utente.nome, email: utente.email, ruolo: utente.ruolo } });
+      return risposta({ utente: perIlPannello(utente) });
     }
 
     // Ogni scrittura deve arrivare dal nostro stesso sito.
     if (metodo !== 'GET' && !origineLecita(req)) {
       return errore('Richiesta non valida', 403);
+    }
+
+    if (percorso === '/password' && metodo === 'POST') {
+      return await postPassword(req, utente);
+    }
+
+    // Con una password provvisoria non si fa nient'altro che cambiarla. Il
+    // blocco è qui e non solo nell'interfaccia: una sessione aperta con la
+    // password provvisoria non deve poter leggere i dati dei clienti
+    // chiamando gli indirizzi a mano.
+    if (utente.deve_cambiare_password === true) {
+      return errore('Devi prima scegliere una password tua', 403, { cambiaPassword: true });
     }
 
     // --- lettura: admin e installatore ------------------------------------

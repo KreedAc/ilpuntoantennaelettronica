@@ -65,14 +65,14 @@ function cookieSessione(valore, durataSecondi) {
 
 /**
  * Riconosce chi sta facendo la richiesta.
- * Restituisce { id, nome, email, ruolo } oppure null.
+ * Restituisce { id, nome, email, ruolo, deve_cambiare_password } oppure null.
  */
 export async function utenteCollegato(req) {
   const token = leggiCookie(req, COOKIE_SESSIONE);
   if (!token) return null;
 
   const righe = await sql()`
-    SELECT u.id, u.nome, u.email, u.ruolo
+    SELECT u.id, u.nome, u.email, u.ruolo, u.deve_cambiare_password
     FROM sessioni s
     JOIN utenti u ON u.id = s.utente_id
     WHERE s.token_hash = ${impronta(token)}
@@ -80,6 +80,15 @@ export async function utenteCollegato(req) {
     LIMIT 1
   `;
   return righe[0] ?? null;
+}
+
+/**
+ * L'impronta della sessione in corso. Serve a chiudere tutte le ALTRE sessioni
+ * dopo un cambio di password, lasciando aperta quella da cui si sta operando.
+ */
+export function improntaSessioneCorrente(req) {
+  const token = leggiCookie(req, COOKIE_SESSIONE);
+  return token ? impronta(token) : null;
 }
 
 /** Pulizia delle sessioni scadute. Chiamata ogni tanto, senza bloccare nulla. */
