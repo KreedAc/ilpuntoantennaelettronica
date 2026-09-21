@@ -1,0 +1,21 @@
+{
+  "name": "ilpuntoantennaelettronica",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Sito e pannello appuntamenti di Il Punto Antenna Elettronica di Rumoro Tiziana",
+  "scripts": {
+    "schema": "node scripts/db.mjs schema",
+    "utenti": "node scripts/db.mjs utenti",
+    "esempi": "node scripts/db.mjs esempi",
+    "chiavi-push": "node scripts/chiavi-push.mjs",
+    "test": "node --test 'test/*.test.mjs'"
+  },
+  "dependencies": {
+    "@neondatabase/serverless": "^1.1.0",
+    "web-push": "^3.6.7"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

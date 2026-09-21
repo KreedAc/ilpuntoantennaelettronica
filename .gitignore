@@ -1,7 +1,16 @@
-# Strumenti di sviluppo locali (Playwright, usato solo per le verifiche)
+# Dipendenze: si reinstallano con `npm install`, non vanno nel repository.
+# `package.json` e `package-lock.json` invece SÌ: Netlify li legge per
+# installare le librerie della funzione /api durante la build.
 node_modules/
-package.json
-package-lock.json
+
+# Segreti: la stringa di connessione al database e le chiavi delle notifiche
+# stanno fra le variabili d'ambiente di Netlify, mai in un file del progetto.
+.env
+.env.*
+!.env.esempio
+
+# Cartelle di lavoro di Netlify
+.netlify/
 
 # File di sistema
 .DS_Store

@@ -28,10 +28,19 @@ Sito vetrina statico, ottimizzato per la SEO locale, per **Il Punto Antenna Elet
 | `assets/prodotti/` | Foto degli smartphone ricondizionati (WebP), estratte dal volantino del fornitore |
 | `dati/` | Contenuti modificabili: recensioni, media, cataloghi prodotti (JSON) |
 | `scripts/genera.py` | Rigenera i blocchi delle pagine a partire da `dati/` |
-| `admin/` | Pannello di amministrazione (Sveltia CMS), escluso dall'indicizzazione |
+| `admin/` | Pannello dei contenuti (Sveltia CMS), escluso dall'indicizzazione |
 | `materiali/` | QR recensioni Google + cartellino A6 pronto da stampare |
+| `appuntamenti/` | Pannello appuntamenti: area riservata con login, esclusa dall'indicizzazione |
+| `netlify/functions/`, `netlify/lib/` | API del pannello appuntamenti e logica condivisa |
+| `db/schema.sql` | Tabelle Postgres del pannello appuntamenti |
+| `scripts/db.mjs`, `scripts/chiavi-push.mjs` | Configurazione del database e chiavi delle notifiche |
+| `test/` | Prove automatiche sulla logica (`npm test`) |
 
-Il sito è HTML/CSS puro: niente framework, nessuna richiesta a server esterni (carattere e icone sono locali). Il menu a comparsa su mobile e le schede cliccabili funzionano senza JavaScript.
+**Le pagine pubbliche restano HTML/CSS puro**: niente framework, nessuna richiesta
+a server esterni (carattere e icone sono locali), menu a comparsa e schede
+cliccabili funzionano senza JavaScript. Le uniche due eccezioni sono aree
+riservate ed escluse dai motori di ricerca: `/admin` (un solo script esterno) e
+`/appuntamenti` (applicazione con database, vedi la sezione dedicata).
 
 ## Contenuti modificabili (`dati/` + generatore)
 
@@ -83,7 +92,7 @@ Dopo l'invio l'utente arriva su `grazie.html` (`action="/grazie.html"`).
 
 I nomi dei campi sono in italiano leggibile (`Nome e cognome`, `Zona`, `Tipo di collaborazione`…) perché è così che compaiono nell'email di notifica.
 
-## Pannello di amministrazione
+## Pannello dei contenuti (`/admin`)
 
 Su **`/admin`** c'è [Sveltia CMS](https://github.com/sveltia/sveltia-cms): modifica i file di `dati/` scrivendo direttamente su GitHub, senza toccare il codice. A ogni salvataggio Netlify ricostruisce e pubblica (circa un minuto). Funziona anche da telefono.
 
@@ -112,6 +121,108 @@ Il token resta nel browser di chi lo inserisce: non è nel repository e non è p
 **Titoli e descrizioni**: Google mostra circa 60 caratteri di titolo e 155 di descrizione, poi taglia. Tenersi entro quei limiti, con la parola chiave all'inizio.
 
 **Nota sulla cache**: `netlify.toml` imposta `Cache-Control: max-age=0`, così ogni modifica pubblicata è visibile all'istante. Il CSS è linkato con un parametro di versione (`style.css?v=N`): **incrementare N in tutte le pagine a ogni modifica dello stile**, per forzare l'aggiornamento sui browser di chi ha già visitato il sito.
+
+## Pannello appuntamenti (`/appuntamenti`)
+
+Area riservata: Tiziana carica gli interventi, l'installatore li vede sul telefono.
+È **l'unica parte del progetto con un database e un server**, e la ragione è una
+sola: qui passano nome, indirizzo e telefono dei clienti. Nei file di `dati/`
+finirebbero su GitHub in chiaro, e resterebbero nella cronologia di git anche
+dopo averli cancellati.
+
+### Come sta insieme
+
+| Pezzo | Dove | Cosa fa |
+|---|---|---|
+| Interfaccia | `appuntamenti/` | HTML, CSS e JavaScript senza librerie |
+| API | `netlify/functions/api.mjs` | risponde a `/api/*` (si instrada da sé con `config.path`) |
+| Logica condivisa | `netlify/lib/` | orari, validazione, password, sessioni, date, push |
+| Schema | `db/schema.sql` | tabelle Postgres |
+| Strumenti | `scripts/db.mjs`, `scripts/chiavi-push.mjs` | schema, utenti, dati di prova, chiavi VAPID |
+
+I due ruoli sono **admin** (Tiziana: crea, modifica, rimanda, annulla) e
+**installatore** (sola lettura, viste Giorno e Settimana, numero cliccabile).
+I permessi si controllano **nell'API su ogni endpoint**: un installatore che
+chiamasse a mano un indirizzo di scrittura riceve `403`, non basta nascondere
+i pulsanti.
+
+### Prima configurazione
+
+1. **Database.** Crea un progetto gratuito su [neon.tech](https://neon.tech) e
+   copia la stringa di connessione. Il piano gratuito non mette in pausa il
+   progetto per inattività: si spegne dopo 5 minuti e si riaccende alla query
+   successiva in qualche centinaio di millisecondi.
+2. **Su Netlify** (*Project configuration → Environment variables*) aggiungi
+   `DATABASE_URL` con quella stringa.
+3. **In locale**, per creare tabelle e utenti:
+   ```bash
+   export DATABASE_URL='postgresql://…'
+   npm install
+   npm run schema     # crea le tabelle (si può rilanciare quando serve)
+   npm run utenti     # crea Tiziana (amministratore) e l'installatore
+   npm run esempi     # facoltativo: cinque appuntamenti di prova
+   ```
+4. **Notifiche push** (facoltative: senza, il pannello funziona lo stesso):
+   ```bash
+   npm run chiavi-push
+   ```
+   Incolla `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` e `VAPID_SUBJECT` fra le
+   variabili d'ambiente di Netlify. **La chiave privata non va nel repository.**
+
+### Notifiche sul telefono dell'installatore
+
+L'installatore le attiva da solo, dal riquadro in fondo alla vista Giorno.
+
+- **Android**: funzionano dal browser, senza installare niente.
+- **iPhone**: solo dopo *Condividi → Aggiungi a Home*, e poi riaprendo il
+  pannello da quell'icona. È un vincolo di Apple. In Europa funzionano: la
+  rimozione annunciata a febbraio 2024 è stata revocata il 1° marzo 2024.
+
+Nella notifica finiscono **solo giorno, ora e nome**: indirizzo, telefono e
+prezzo restano dietro il login.
+
+### Regole di funzionamento
+
+- Fasce da **30 minuti**, dalle **08:00 alle 18:30** (ultima che finisce alle 19:00).
+  Si cambiano in **un punto solo**: `netlify/lib/configurazione.mjs`. L'interfaccia
+  riceve l'elenco delle fasce dall'API, quindi non esiste una seconda copia.
+- **Un appuntamento per fascia.** Lo garantisce un indice unico parziale nel
+  database (`appuntamenti_una_per_fascia`), non solo un controllo nel codice:
+  due salvataggi nello stesso istante non possono sovrapporsi.
+- Settimana **da lunedì a sabato**, fuso `Europe/Rome`.
+- **Annullare non cancella**: la riga resta con `stato = 'annullato'`, ma sparisce
+  da tutte le viste. La fascia torna libera.
+- Il prezzo è salvato **in centesimi**, come numero intero: niente arrotondamenti.
+
+### Sicurezza
+
+Password con **scrypt** (`node:crypto`, memory-hard come bcrypt e argon2, senza
+dipendenze esterne); sessioni in cookie `HttpOnly` + `Secure` + `SameSite=Strict`
+di cui il database conserva solo l'impronta SHA-256; limite di 8 tentativi di
+accesso in 15 minuti per IP e per email; `Origin` verificato su ogni scrittura;
+`no-store` e `noindex` su `/appuntamenti/*` e `/api/*`; `Disallow` in `robots.txt`.
+Il service worker **non mette niente in cache**, di proposito.
+
+### Prove
+
+```bash
+npm test     # 25 prove sulla logica: fasce, prezzi, date, password, validazione
+```
+
+L'interfaccia è stata verificata in un browser vero (Chromium, 1280 px e 390 px)
+con l'API simulata: accesso e ruoli, griglia, creazione, fascia occupata,
+rimanda, modifica, annullamento con conferma, viste installatore, link `tel:`,
+nessuno scorrimento orizzontale a 390 px, elementi toccabili da almeno 44 px.
+
+### Da fare prima di usarlo davvero
+
+- [ ] Creare il progetto Neon e impostare `DATABASE_URL` su Netlify
+- [ ] `npm run schema` e `npm run utenti`
+- [ ] Generare le chiavi VAPID e impostarle su Netlify
+- [ ] Far installare il pannello sulla schermata Home del telefono dell'installatore
+- [ ] **Aggiornare l'informativa privacy**: `privacy.html` non copre ancora questo
+      trattamento (dati dei clienti per la gestione degli interventi, conservazione,
+      Neon come responsabile del trattamento)
 
 ## Dati dell'attività (verificati sulla scheda Google Business, luglio 2026)
 

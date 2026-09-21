@@ -1,0 +1,712 @@
+/* Pannello appuntamenti — Il Punto Antenna Elettronica
+ *
+ * Foglio di stile indipendente da quello del sito pubblico: qui non servono
+ * né le sezioni della vetrina né il menu, e tenere i due file separati evita
+ * che una modifica al pannello tocchi per sbaglio le pagine indicizzate.
+ *
+ * Il carattere e il blu sono però gli stessi del sito (Inter già ospitato sul
+ * nostro dominio, --blu #2e3192): l'insieme resta coerente e il pannello non
+ * chiede font a Google, che su un'area riservata significherebbe mandare
+ * l'indirizzo IP dell'installatore a un terzo a ogni apertura.
+ */
+
+@font-face {
+  font-family: "Inter";
+  src: url("/assets/fonts/InterVariable.woff2") format("woff2");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  --blu: #2e3192;
+  --blu-scuro: #24276f;
+  --testo: #171933;
+  --testo-secondario: #5a5e7a;
+  --fondo: #f4f5fa;
+  --superficie: #ffffff;
+  --linea: #dcdeea;
+  --linea-leggera: #e6e8f2;
+  --linea-mezzora: #f0f1f8;
+  --bordo-campo: #8d91ab;
+  --colonna-oggi: #f7f8fd;
+
+  --app-fondo: #e8e9f6;
+  --app-bordo: #c3c6ea;
+  --urgente-fondo: #fdeccd;
+  --urgente-bordo: #ecae55;
+  --urgente-testo: #3d2200;
+  --urgente-etichetta: #7a3f00;
+
+  --pericolo: #b3261e;
+  --pericolo-chiaro: #fdecea;
+  --velo: rgba(23, 25, 51, 0.4);
+
+  --riga: 44px;   /* altezza di una fascia da 30 minuti */
+  --blocco: 40px; /* altezza del blocco appuntamento */
+  --ore: 64px;    /* larghezza della colonna degli orari */
+}
+
+* { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  background: var(--fondo);
+  color: var(--testo);
+  font-family: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-size: 15px;
+  line-height: 1.5;
+  /* Su iPhone in modalità app evita che la barra di sistema copra i contenuti. */
+  padding: env(safe-area-inset-top) env(safe-area-inset-right)
+           env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+
+h1, h2, h3 { margin: 0; font-weight: 600; letter-spacing: -0.01em; }
+
+:where(a) { color: inherit; }
+
+:focus-visible {
+  outline: 3px solid var(--blu);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.caricamento-iniziale,
+.senza-javascript {
+  max-width: 34rem;
+  margin: 4rem auto;
+  padding: 0 1rem;
+  color: var(--testo-secondario);
+  text-align: center;
+}
+
+.solo-lettori {
+  position: absolute;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px;
+  overflow: hidden; clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* ------------------------------------------------------------------ */
+/* Pulsanti e campi                                                    */
+/* ------------------------------------------------------------------ */
+
+.pulsante {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 44px;
+  padding: 0 1rem;
+  border: 1px solid var(--linea);
+  border-radius: 10px;
+  background: var(--superficie);
+  color: var(--testo);
+  font: inherit;
+  font-weight: 500;
+  cursor: pointer;
+  text-decoration: none;
+}
+.pulsante:hover { background: var(--fondo); }
+.pulsante[disabled] { opacity: 0.55; cursor: progress; }
+
+.pulsante.primario {
+  background: var(--blu);
+  border-color: var(--blu);
+  color: #fff;
+}
+.pulsante.primario:hover { background: var(--blu-scuro); border-color: var(--blu-scuro); }
+
+.pulsante.pericolo {
+  border-color: var(--pericolo);
+  color: var(--pericolo);
+  background: var(--superficie);
+}
+.pulsante.pericolo:hover { background: var(--pericolo-chiaro); }
+
+.pulsante.pericolo-pieno {
+  background: var(--pericolo);
+  border-color: var(--pericolo);
+  color: #fff;
+}
+.pulsante.pericolo-pieno:hover { filter: brightness(0.92); }
+
+.pulsante.icona {
+  width: 44px;
+  min-width: 44px;
+  padding: 0;
+}
+.pulsante svg { width: 18px; height: 18px; flex: none; }
+
+.campo { display: block; margin-bottom: 1rem; }
+.campo > .etichetta {
+  display: block;
+  margin-bottom: 0.35rem;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--testo-secondario);
+}
+
+.campo input,
+.campo select,
+.campo textarea {
+  width: 100%;
+  min-height: 44px;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--bordo-campo);
+  border-radius: 8px;
+  background: var(--superficie);
+  color: var(--testo);
+  font: inherit;
+}
+.campo textarea { min-height: 76px; resize: vertical; }
+.campo input:focus, .campo select:focus, .campo textarea:focus { border-color: var(--blu); }
+
+/* Prezzo: il simbolo € è dentro il riquadro, a sinistra. */
+.con-euro { position: relative; }
+.con-euro::before {
+  content: "€";
+  position: absolute;
+  left: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--testo-secondario);
+  pointer-events: none;
+}
+.con-euro input { padding-left: 1.85rem; }
+
+.coppia { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+.coppia .campo { margin-bottom: 1rem; }
+
+.campo .errore-campo,
+.errore-campo {
+  display: block;
+  margin-top: 0.3rem;
+  color: var(--pericolo);
+  font-size: 13px;
+  font-weight: 500;
+}
+.campo[data-errore] input,
+.campo[data-errore] select,
+.campo[data-errore] textarea { border-color: var(--pericolo); }
+
+.scelta {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  padding: 0.75rem;
+  border: 1px solid var(--linea);
+  border-radius: 8px;
+  cursor: pointer;
+}
+.scelta input { width: 20px; min-height: 20px; height: 20px; margin: 2px 0 0; flex: none; accent-color: var(--blu); }
+.scelta .nota { display: block; font-size: 13px; color: var(--testo-secondario); }
+
+.avviso {
+  margin: 0 0 1rem;
+  padding: 0.75rem 0.9rem;
+  border: 1px solid var(--pericolo);
+  border-left-width: 4px;
+  border-radius: 8px;
+  background: var(--pericolo-chiaro);
+  color: var(--pericolo);
+  font-size: 14px;
+  font-weight: 500;
+}
+.avviso.informativo {
+  border-color: var(--urgente-bordo);
+  background: var(--urgente-fondo);
+  color: var(--urgente-testo);
+}
+
+/* ------------------------------------------------------------------ */
+/* Accesso                                                             */
+/* ------------------------------------------------------------------ */
+
+.accesso { display: grid; grid-template-columns: 1fr 1fr; min-height: 100vh; min-height: 100dvh; }
+
+.accesso .marchio {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 1rem;
+  padding: 3rem;
+  background: var(--blu);
+  color: #fff;
+}
+.accesso .marchio .nome {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.85;
+}
+.accesso .marchio h1 { font-size: 30px; line-height: 1.25; max-width: 16em; }
+.accesso .marchio p { margin: 0; max-width: 24em; opacity: 0.85; }
+
+.accesso .modulo-lato { display: flex; align-items: center; justify-content: center; padding: 2rem 1.5rem; }
+.accesso form { width: 100%; max-width: 22rem; }
+.accesso form h2 { font-size: 26px; margin-bottom: 0.25rem; }
+.accesso form .introduzione { margin: 0 0 1.5rem; color: var(--testo-secondario); }
+.accesso .pulsante.primario { width: 100%; min-height: 48px; }
+.accesso .nota-ruolo { margin: 1rem 0 0; font-size: 13px; color: var(--testo-secondario); }
+
+@media (max-width: 820px) {
+  .accesso { grid-template-columns: 1fr; }
+  .accesso .marchio { display: none; }
+  .accesso .modulo-lato { min-height: 100vh; min-height: 100dvh; }
+}
+
+/* ------------------------------------------------------------------ */
+/* Barra superiore (amministratore)                                    */
+/* ------------------------------------------------------------------ */
+
+.barra {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  height: 64px;
+  padding: 0 1.25rem;
+  background: var(--superficie);
+  border-bottom: 1px solid var(--linea);
+}
+.barra .negozio { font-weight: 600; }
+.barra .separatore { width: 1px; height: 24px; background: var(--linea); }
+.barra .sezione { color: var(--testo-secondario); }
+.barra .destra { margin-left: auto; display: flex; align-items: center; gap: 0.9rem; }
+.barra .chi { font-size: 14px; color: var(--testo-secondario); }
+
+.strumenti {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.9rem 1.25rem;
+  flex-wrap: wrap;
+}
+.strumenti .titolo-settimana { font-size: 18px; font-weight: 600; margin-left: 0.4rem; }
+.strumenti .a-destra { margin-left: auto; display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
+
+.legenda { display: flex; gap: 0.9rem; font-size: 13px; color: var(--testo-secondario); }
+.legenda span { display: inline-flex; align-items: center; gap: 0.4rem; }
+.legenda i {
+  width: 14px; height: 14px; border-radius: 4px;
+  background: var(--app-fondo); border: 1px solid var(--app-bordo);
+}
+.legenda i.urgente { background: var(--urgente-fondo); border-color: var(--urgente-bordo); }
+
+/* ------------------------------------------------------------------ */
+/* Agenda settimanale                                                  */
+/* ------------------------------------------------------------------ */
+
+.agenda-contenitore { padding: 0 1.25rem 2rem; overflow-x: auto; }
+
+.agenda {
+  min-width: 860px;
+  background: var(--superficie);
+  border: 1px solid var(--linea);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.agenda .intestazione,
+.agenda .corpo {
+  display: grid;
+  grid-template-columns: var(--ore) repeat(6, minmax(0, 1fr));
+}
+
+.agenda .intestazione {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--superficie);
+  border-bottom: 1px solid var(--linea);
+}
+.agenda .intestazione > div {
+  padding: 0.6rem 0.5rem;
+  text-align: center;
+  border-left: 1px solid var(--linea-leggera);
+}
+.agenda .intestazione > div:first-child { border-left: 0; }
+.agenda .intestazione .sigla {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--testo-secondario);
+}
+.agenda .intestazione .numero {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px; height: 30px;
+  margin-top: 0.15rem;
+  border-radius: 50%;
+  font-size: 16px;
+  font-weight: 600;
+}
+.agenda .intestazione .oggi .numero { background: var(--blu); color: #fff; }
+
+.colonna-ore { position: relative; }
+.colonna-ore .ora {
+  position: absolute;
+  right: 0.6rem;
+  transform: translateY(-50%);
+  font-size: 12px;
+  color: var(--testo-secondario);
+}
+/* La prima etichetta è a quota zero: centrata sulla riga finirebbe per metà
+   sopra il bordo della tabella, e verrebbe tagliata. Va appoggiata sotto. */
+.colonna-ore .ora:first-child { transform: translateY(0); }
+
+.colonna-giorno {
+  position: relative;
+  border-left: 1px solid var(--linea-leggera);
+  /* Le righe sono disegnate come sfondo: nessun elemento in più nel DOM.
+     Il primo strato (linea piena ogni ora) copre il secondo (mezz'ora). */
+  background-image:
+    repeating-linear-gradient(to bottom, var(--linea-leggera) 0 1px, transparent 1px calc(var(--riga) * 2)),
+    repeating-linear-gradient(to bottom, var(--linea-mezzora) 0 1px, transparent 1px var(--riga));
+}
+.colonna-giorno.oggi { background-color: var(--colonna-oggi); }
+
+.blocco {
+  position: absolute;
+  left: 4px;
+  right: 4px;
+  height: var(--blocco);
+  padding: 0.25rem 0.5rem;
+  border: 1px solid var(--app-bordo);
+  border-radius: 8px;
+  background: var(--app-fondo);
+  color: var(--testo);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+.blocco .prima { font-size: 13px; font-weight: 600; }
+.blocco .seconda { font-size: 12px; color: var(--testo-secondario); }
+.blocco .prima, .blocco .seconda {
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.blocco.urgente {
+  background: var(--urgente-fondo);
+  border-color: var(--urgente-bordo);
+  color: var(--urgente-testo);
+}
+.blocco.urgente .seconda { color: var(--urgente-testo); }
+.blocco.scelto { outline: 2px solid var(--blu); outline-offset: 1px; }
+
+/* ------------------------------------------------------------------ */
+/* Pannello laterale e dialogo                                         */
+/* ------------------------------------------------------------------ */
+
+dialog::backdrop { background: var(--velo); }
+
+dialog.pannello {
+  width: 460px;
+  max-width: 100%;
+  height: 100%;
+  max-height: 100%;
+  margin: 0 0 0 auto;
+  padding: 0;
+  border: 0;
+  background: var(--superficie);
+  color: var(--testo);
+  box-shadow: -12px 0 32px rgba(23, 25, 51, 0.16);
+}
+dialog.pannello .dentro {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+dialog.pannello .testa {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--linea);
+}
+dialog.pannello .testa h2 { font-size: 18px; }
+dialog.pannello .testa .chiudi { margin-left: auto; }
+dialog.pannello .contenuto { flex: 1; overflow-y: auto; padding: 1.25rem; }
+dialog.pannello .piede {
+  display: flex;
+  gap: 0.75rem;
+  padding: 1rem 1.25rem;
+  border-top: 1px solid var(--linea);
+}
+dialog.pannello .piede .pulsante { flex: 1; }
+dialog.pannello .piede.sparso { justify-content: space-between; }
+dialog.pannello .piede.sparso .pulsante { flex: 0 1 auto; }
+
+.sezione-titolo {
+  margin: 0 0 0.9rem;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--testo-secondario);
+}
+
+.scheda-nome { font-size: 24px; font-weight: 600; }
+.scheda-quando { margin: 0.25rem 0 1.25rem; color: var(--testo-secondario); }
+
+.righe { margin: 0 0 1.25rem; }
+.righe > div {
+  display: grid;
+  grid-template-columns: 8.5rem 1fr;
+  gap: 0.75rem;
+  padding: 0.7rem 0;
+  border-top: 1px solid var(--linea-leggera);
+}
+.righe > div:first-child { border-top: 0; }
+.righe dt { font-size: 13px; color: var(--testo-secondario); }
+.righe dd { margin: 0; overflow-wrap: anywhere; }
+
+.riquadro-rimanda {
+  padding: 1rem;
+  border: 1px solid var(--linea);
+  border-radius: 12px;
+  background: var(--fondo);
+}
+.riquadro-rimanda .pulsante { width: 100%; }
+
+.etichetta-urgente {
+  display: inline-block;
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  background: var(--urgente-etichetta);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+dialog.conferma {
+  width: min(28rem, calc(100vw - 2rem));
+  padding: 1.5rem;
+  border: 0;
+  border-radius: 16px;
+  background: var(--superficie);
+  color: var(--testo);
+}
+dialog.conferma h2 { font-size: 20px; margin-bottom: 0.75rem; }
+dialog.conferma .riassunto {
+  margin: 0 0 1rem;
+  padding: 0.9rem;
+  border: 1px solid var(--linea);
+  border-radius: 10px;
+  background: var(--fondo);
+  font-size: 14px;
+}
+dialog.conferma .riassunto strong { display: block; font-size: 16px; }
+dialog.conferma p { margin: 0 0 1.25rem; color: var(--testo-secondario); font-size: 14px; }
+dialog.conferma .bottoni { display: flex; gap: 0.75rem; }
+dialog.conferma .bottoni .pulsante { flex: 1; }
+
+/* ------------------------------------------------------------------ */
+/* Installatore                                                        */
+/* ------------------------------------------------------------------ */
+
+.app-installatore { max-width: 40rem; margin: 0 auto; padding-bottom: 3rem; }
+
+.testa-installatore {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem 1.15rem;
+  background: var(--blu);
+  color: #fff;
+}
+.testa-installatore .nome { font-weight: 600; }
+.testa-installatore .esci {
+  margin-left: auto;
+  background: transparent;
+  border-color: rgba(255, 255, 255, 0.45);
+  color: #fff;
+}
+.testa-installatore .esci:hover { background: rgba(255, 255, 255, 0.12); }
+
+.schede {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.4rem;
+  margin: 1rem 1.15rem;
+  padding: 0.25rem;
+  border-radius: 12px;
+  background: var(--superficie);
+  border: 1px solid var(--linea);
+}
+.schede a {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9px;
+  font-weight: 500;
+  text-decoration: none;
+  color: var(--testo-secondario);
+}
+.schede a[aria-current="page"] { background: var(--blu); color: #fff; }
+
+.navigazione-giorno {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0 1.15rem 0.75rem;
+}
+.navigazione-giorno .testo { flex: 1; min-width: 0; }
+.navigazione-giorno h1 { font-size: 20px; }
+.navigazione-giorno .sotto { font-size: 13px; color: var(--testo-secondario); }
+
+.elenco { list-style: none; margin: 0; padding: 0 1.15rem; display: grid; gap: 0.6rem; }
+
+.voce { display: grid; grid-template-columns: 4rem 1fr; gap: 0.75rem; align-items: stretch; }
+.voce .quando { padding-top: 0.9rem; font-size: 20px; font-weight: 600; text-align: right; }
+.voce a {
+  display: block;
+  padding: 0.85rem 0.95rem;
+  border: 1px solid var(--linea);
+  border-radius: 14px;
+  background: var(--superficie);
+  text-decoration: none;
+  min-height: 44px;
+}
+.voce a .chi { font-weight: 600; }
+.voce a .dove {
+  display: flex;
+  gap: 0.35rem;
+  margin-top: 0.15rem;
+  font-size: 13px;
+  color: var(--testo-secondario);
+}
+.voce a .dove svg { width: 14px; height: 14px; flex: none; margin-top: 3px; }
+.voce.urgente a { background: var(--urgente-fondo); border-color: var(--urgente-bordo); }
+.voce.urgente a .dove { color: var(--urgente-testo); }
+.voce .etichetta-urgente { margin-top: 0.5rem; }
+
+.giorno-gruppo { padding: 0 0 1.25rem; }
+.giorno-gruppo h2 {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0 1.15rem 0.6rem;
+  font-size: 15px;
+}
+.giorno-gruppo h2 .oggi-segno {
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  background: var(--blu);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.giorno-gruppo .compatta { grid-template-columns: 3.5rem 1fr; }
+.giorno-gruppo .compatta .quando { padding-top: 0.7rem; font-size: 16px; }
+.giorno-gruppo .compatta a { padding: 0.6rem 0.8rem; }
+
+.vuoto {
+  margin: 0 1.15rem;
+  padding: 1.25rem;
+  border: 1px dashed var(--linea);
+  border-radius: 14px;
+  color: var(--testo-secondario);
+  text-align: center;
+}
+
+.dettaglio { padding: 0 1.15rem; display: grid; gap: 0.75rem; }
+.dettaglio .nome-grande { font-size: 26px; font-weight: 600; }
+.dettaglio .riquadro {
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--linea);
+  border-radius: 14px;
+  background: var(--superficie);
+}
+.dettaglio .riquadro .titoletto {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--testo-secondario);
+}
+.dettaglio .riquadro .valore { margin-top: 0.2rem; overflow-wrap: anywhere; }
+.dettaglio .riquadro .valore.grande { font-size: 18px; font-weight: 600; }
+
+.chiama {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  min-height: 60px;
+  padding: 0.75rem 1rem;
+  border-radius: 14px;
+  background: var(--blu);
+  color: #fff;
+  font-size: 19px;
+  font-weight: 600;
+  text-decoration: none;
+}
+.chiama:hover { background: var(--blu-scuro); }
+.chiama .sopra {
+  display: block;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  opacity: 0.85;
+}
+.chiama svg { width: 22px; height: 22px; }
+
+.barra-indietro { padding: 0.85rem 1.15rem; }
+
+.riga-notifiche {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 1rem 1.15rem 0;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--linea);
+  border-radius: 14px;
+  background: var(--superficie);
+  font-size: 14px;
+}
+.riga-notifiche .testo { flex: 1; }
+.riga-notifiche .stato { display: block; font-size: 13px; color: var(--testo-secondario); }
+
+/* ------------------------------------------------------------------ */
+/* Agenda su schermi stretti                                           */
+/* ------------------------------------------------------------------ */
+/* Sotto i 1024 px la griglia a sei colonne non ci sta: resta leggibile
+ * con lo scorrimento orizzontale del solo contenitore dell'agenda, mentre
+ * la pagina non scorre mai di lato. */
+
+@media (max-width: 1023px) {
+  .barra { padding: 0 1rem; }
+  .barra .sezione { display: none; }
+  .strumenti { padding: 0.9rem 1rem; }
+  .strumenti .a-destra { width: 100%; margin-left: 0; }
+  .legenda { order: 2; }
+  .agenda-contenitore { padding: 0 1rem 2rem; }
+}
+
+@media (max-width: 560px) {
+  .coppia { grid-template-columns: 1fr; }
+  dialog.pannello { width: 100%; }
+  .strumenti .titolo-settimana { width: 100%; margin-left: 0; order: -1; }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  dialog.pannello { animation: entra-da-destra 0.18s ease-out; }
+  @keyframes entra-da-destra { from { transform: translateX(16px); opacity: 0; } }
+}

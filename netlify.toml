@@ -18,12 +18,31 @@
     Permissions-Policy = "camera=(), microphone=(), geolocation=()"
     Cache-Control = "public, max-age=0, must-revalidate"
 
-# Il pannello non deve finire nei motori di ricerca né in un iframe.
+# Il pannello dei contenuti non deve finire nei motori di ricerca né in un iframe.
 [[headers]]
   for = "/admin/*"
   [headers.values]
     X-Robots-Tag = "noindex, nofollow"
     X-Frame-Options = "DENY"
+
+# Pannello appuntamenti: area riservata con dati di clienti.
+# Qui la regola generale (`max-age=0, must-revalidate`) non basta, perché
+# permette comunque al browser di conservare una copia della pagina: con
+# `no-store` non ne resta traccia sul disco, per esempio sul telefono
+# dell'installatore se dovesse perderlo.
+[[headers]]
+  for = "/appuntamenti/*"
+  [headers.values]
+    X-Robots-Tag = "noindex, nofollow, noarchive"
+    X-Frame-Options = "DENY"
+    Cache-Control = "no-store, no-cache, must-revalidate, private"
+    Referrer-Policy = "same-origin"
+
+[[headers]]
+  for = "/api/*"
+  [headers.values]
+    X-Robots-Tag = "noindex, nofollow, noarchive"
+    Cache-Control = "no-store, no-cache, must-revalidate, private"
 
 # Netlify serve ogni pagina anche senza estensione, e Google ha finito per
 # indicizzare entrambe le forme dello stesso indirizzo. I tag canonical
@@ -89,3 +108,12 @@
   to = "/collabora-con-noi.html"
   status = 301
   force = true
+
+# Il pannello appuntamenti vive in una cartella: /appuntamenti deve portare
+# alla stessa pagina di /appuntamenti/, senza un giro di reindirizzamento.
+# Le chiamate a /api/* le instrada la funzione da sé (vedi `config.path` in
+# netlify/functions/api.mjs), quindi qui non serve nessuna regola.
+[[redirects]]
+  from = "/appuntamenti"
+  to = "/appuntamenti/index.html"
+  status = 200

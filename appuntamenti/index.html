@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+
+  <!-- Area riservata: non deve finire nei motori di ricerca. Lo dicono anche
+       l'intestazione X-Robots-Tag in netlify.toml e robots.txt. -->
+  <meta name="robots" content="noindex, nofollow, noarchive">
+  <meta name="referrer" content="same-origin">
+
+  <title>Appuntamenti · Il Punto Antenna Elettronica</title>
+  <meta name="theme-color" content="#2e3192">
+
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="/favicon.ico" sizes="any">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+  <link rel="stylesheet" href="app.css?v=1">
+</head>
+<body>
+  <!-- Tutta l'interfaccia viene costruita da app.js dentro questo contenitore. -->
+  <div id="app" class="avvio">
+    <p class="caricamento-iniziale">Caricamento…</p>
+  </div>
+
+  <noscript>
+    <div class="senza-javascript">
+      <h1>Serve JavaScript</h1>
+      <p>
+        Il pannello appuntamenti ha bisogno di JavaScript per funzionare.
+        Attivalo nelle impostazioni del browser e ricarica la pagina.
+      </p>
+    </div>
+  </noscript>
+
+  <script src="app.js?v=1" type="module"></script>
+</body>
+</html>
