@@ -42,9 +42,17 @@
   --pericolo-chiaro: #fdecea;
   --velo: rgba(23, 25, 51, 0.4);
 
-  --riga: 44px;   /* altezza di una fascia da 30 minuti */
-  --blocco: 40px; /* altezza del blocco appuntamento */
-  --ore: 64px;    /* larghezza della colonna degli orari */
+  /* Altezza di una fascia da 30 minuti. app.js legge QUESTO valore per
+     posizionare i blocchi, quindi si cambia solo qui. Con 34px l'intera
+     giornata (08:00-19:00) sta in poco più di 700px e su uno schermo da
+     1080 si vede quasi tutta senza scorrere. */
+  --riga: 34px;
+  --blocco: 30px; /* altezza del blocco appuntamento */
+  --ore: 58px;    /* larghezza della colonna degli orari */
+
+  /* Oltre questa larghezza l'agenda smette di allargarsi e resta centrata:
+     su un monitor da 1920 le colonne diventerebbero larghe 300px di vuoto. */
+  --agenda-massima: 1400px;
 }
 
 * { box-sizing: border-box; }
@@ -301,11 +309,17 @@ h1, h2, h3 { margin: 0; font-weight: 600; letter-spacing: -0.01em; }
   display: flex;
   align-items: center;
   gap: 0.9rem;
-  height: 64px;
+  height: 56px;
   padding: 0 1.25rem;
   background: var(--superficie);
   border-bottom: 1px solid var(--linea);
 }
+/* Nella barra e negli strumenti i pulsanti stanno più bassi: qui si usa il
+   mouse, non il dito, e i 44px di altezza minima servono sul telefono. */
+.barra .pulsante,
+.strumenti .pulsante { min-height: 36px; padding: 0 0.8rem; }
+.barra .pulsante.icona,
+.strumenti .pulsante.icona { width: 36px; min-width: 36px; }
 .barra .negozio { font-weight: 600; }
 .barra .separatore { width: 1px; height: 24px; background: var(--linea); }
 .barra .sezione { color: var(--testo-secondario); }
@@ -315,11 +329,15 @@ h1, h2, h3 { margin: 0; font-weight: 600; letter-spacing: -0.01em; }
 .strumenti {
   display: flex;
   align-items: center;
-  gap: 0.6rem;
-  padding: 0.9rem 1.25rem;
+  gap: 0.5rem;
+  /* Il di più tiene conto del bordo laterale del contenitore dell'agenda,
+     così la barra strumenti resta allineata alla griglia sotto. */
+  max-width: calc(var(--agenda-massima) + 2.5rem);
+  margin: 0 auto;
+  padding: 0.7rem 1.25rem;
   flex-wrap: wrap;
 }
-.strumenti .titolo-settimana { font-size: 18px; font-weight: 600; margin-left: 0.4rem; }
+.strumenti .titolo-settimana { font-size: 17px; font-weight: 600; margin-left: 0.4rem; }
 .strumenti .a-destra { margin-left: auto; display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
 
 .legenda { display: flex; gap: 0.9rem; font-size: 13px; color: var(--testo-secondario); }
@@ -337,7 +355,9 @@ h1, h2, h3 { margin: 0; font-weight: 600; letter-spacing: -0.01em; }
 .agenda-contenitore { padding: 0 1.25rem 2rem; overflow-x: auto; }
 
 .agenda {
-  min-width: 860px;
+  min-width: 800px;
+  max-width: var(--agenda-massima);
+  margin: 0 auto;
   background: var(--superficie);
   border: 1px solid var(--linea);
   border-radius: 12px;
@@ -358,7 +378,7 @@ h1, h2, h3 { margin: 0; font-weight: 600; letter-spacing: -0.01em; }
   border-bottom: 1px solid var(--linea);
 }
 .agenda .intestazione > div {
-  padding: 0.6rem 0.5rem;
+  padding: 0.45rem 0.5rem;
   text-align: center;
   border-left: 1px solid var(--linea-leggera);
 }
@@ -375,10 +395,10 @@ h1, h2, h3 { margin: 0; font-weight: 600; letter-spacing: -0.01em; }
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 30px; height: 30px;
-  margin-top: 0.15rem;
+  width: 26px; height: 26px;
+  margin-top: 0.1rem;
   border-radius: 50%;
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 600;
 }
 .agenda .intestazione .oggi .numero { background: var(--blu); color: #fff; }
@@ -411,7 +431,9 @@ h1, h2, h3 { margin: 0; font-weight: 600; letter-spacing: -0.01em; }
   left: 4px;
   right: 4px;
   height: var(--blocco);
-  padding: 0.25rem 0.5rem;
+  /* Niente spazio sopra e sotto: le due righe di testo occupano già quasi
+     tutta l'altezza del blocco, e con dell'imbottitura verrebbero tagliate. */
+  padding: 0 0.45rem;
   border: 1px solid var(--app-bordo);
   border-radius: 8px;
   background: var(--app-fondo);
@@ -424,8 +446,8 @@ h1, h2, h3 { margin: 0; font-weight: 600; letter-spacing: -0.01em; }
   flex-direction: column;
   justify-content: center;
 }
-.blocco .prima { font-size: 13px; font-weight: 600; }
-.blocco .seconda { font-size: 12px; color: var(--testo-secondario); }
+.blocco .prima { font-size: 12.5px; font-weight: 600; line-height: 1.2; }
+.blocco .seconda { font-size: 11.5px; line-height: 1.2; color: var(--testo-secondario); }
 .blocco .prima, .blocco .seconda {
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }

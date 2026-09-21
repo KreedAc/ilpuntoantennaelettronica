@@ -333,7 +333,12 @@ const diQuelGiorno = (elenco, giorno) => elenco.filter((a) => a.data === giorno)
 
 function vistaAgenda(inizioSettimana) {
   const fasce = stato.config.fasce;
-  const altezzaRiga = 44;
+  // L'altezza della fascia sta nel CSS (--riga). Leggerla da lì invece di
+  // ripeterla qui evita che cambiando lo stile i blocchi finiscano su un
+  // orario diverso da quello scritto sopra.
+  const altezzaRiga = parseFloat(
+    getComputedStyle(document.documentElement).getPropertyValue('--riga'),
+  ) || 34;
   const altezza = fasce.length * altezzaRiga;
   const adesso = oggi();
 
@@ -414,6 +419,7 @@ function vistaAgenda(inizioSettimana) {
         type: 'button',
         class: `blocco${appuntamento.urgente ? ' urgente' : ''}`,
         style: `top:${indice * altezzaRiga + 2}px`,
+        title: `${appuntamento.ora} · ${appuntamento.nomeCliente} · ${appuntamento.luogoImpianto}`,
         onclick: (e) => apriPannelloScheda(appuntamento.id, inizioSettimana, e.currentTarget),
       },
         el('span', { class: 'prima', testo: `${appuntamento.ora} ${appuntamento.nomeCliente}` }),
