@@ -333,13 +333,6 @@ const diQuelGiorno = (elenco, giorno) => elenco.filter((a) => a.data === giorno)
 
 function vistaAgenda(inizioSettimana) {
   const fasce = stato.config.fasce;
-  // L'altezza della fascia sta nel CSS (--riga). Leggerla da lì invece di
-  // ripeterla qui evita che cambiando lo stile i blocchi finiscano su un
-  // orario diverso da quello scritto sopra.
-  const altezzaRiga = parseFloat(
-    getComputedStyle(document.documentElement).getPropertyValue('--riga'),
-  ) || 34;
-  const altezza = fasce.length * altezzaRiga;
   const adesso = oggi();
 
   // --- barra superiore ---
@@ -398,19 +391,27 @@ function vistaAgenda(inizioSettimana) {
   }
 
   // --- colonna degli orari ---
-  const colonnaOre = el('div', { class: 'colonna-ore' });
-  colonnaOre.style.height = `${altezza}px`;
+  // Tutte le misure sono espresse in funzione di --riga, mai in pixel fissi:
+  // così quando app.js ricalcola l'altezza della fascia sulla finestra, righe
+  // ed etichette si spostano da sole, senza ridisegnare niente.
+  const altezzaTotale = `calc(var(--riga) * ${fasce.length})`;
+
+  const colonnaOre = el('div', { class: 'colonna-ore', style: `height:${altezzaTotale}` });
   fasce.forEach((ora, indice) => {
     if (!ora.endsWith(':00')) return;
-    colonnaOre.append(el('span', { class: 'ora', testo: ora, style: `top:${indice * altezzaRiga}px` }));
+    colonnaOre.append(el('span', {
+      class: 'ora', testo: ora, style: `top:calc(var(--riga) * ${indice})`,
+    }));
   });
 
   // --- colonne dei giorni ---
   const corpo = el('div', { class: 'corpo' }, colonnaOre);
   for (let i = 0; i < 6; i += 1) {
     const giorno = piuGiorni(inizioSettimana, i);
-    const colonna = el('div', { class: `colonna-giorno${giorno === adesso ? ' oggi' : ''}` });
-    colonna.style.height = `${altezza}px`;
+    const colonna = el('div', {
+      class: `colonna-giorno${giorno === adesso ? ' oggi' : ''}`,
+      style: `height:${altezzaTotale}`,
+    });
 
     for (const appuntamento of diQuelGiorno(stato.appuntamenti, giorno)) {
       const indice = fasce.indexOf(appuntamento.ora);
@@ -418,7 +419,7 @@ function vistaAgenda(inizioSettimana) {
       colonna.append(el('button', {
         type: 'button',
         class: `blocco${appuntamento.urgente ? ' urgente' : ''}`,
-        style: `top:${indice * altezzaRiga + 2}px`,
+        style: `top:calc(var(--riga) * ${indice} + 2px)`,
         title: `${appuntamento.ora} · ${appuntamento.nomeCliente} · ${appuntamento.luogoImpianto}`,
         onclick: (e) => apriPannelloScheda(appuntamento.id, inizioSettimana, e.currentTarget),
       },
@@ -432,11 +433,39 @@ function vistaAgenda(inizioSettimana) {
     corpo.append(colonna);
   }
 
-  return el('div', {}, barra, strumenti,
-    el('div', { class: 'agenda-contenitore' },
-      el('div', { class: 'agenda' }, intestazione, corpo),
-    ),
+  const agenda = el('div', { class: 'agenda' }, intestazione, corpo);
+  return el('div', {}, barra, strumenti, el('div', { class: 'agenda-contenitore' }, agenda));
+}
+
+/** Limiti dell'altezza di una fascia: sotto il minimo diventa illeggibile,
+ *  sopra il massimo si spreca spazio su uno schermo molto alto. */
+const FASCIA_MINIMA = 24;
+const FASCIA_MASSIMA = 40;
+/** Sotto questa altezza nel blocco ci sta una riga sola. */
+const FASCIA_A_UNA_RIGA = 28;
+
+/**
+ * Sceglie l'altezza della fascia in modo che l'intera giornata entri nella
+ * finestra. Si limita a scrivere --riga sull'agenda: righe, etichette e
+ * blocchi sono tutti espressi in funzione di quella variabile e si
+ * ricollocano da soli.
+ */
+function adattaAgenda() {
+  const agenda = document.querySelector('.agenda');
+  const corpo = agenda?.querySelector('.corpo');
+  if (!corpo || !stato.config) return;
+
+  const quante = stato.config.fasce.length;
+  const cima = corpo.getBoundingClientRect().top + window.scrollY;
+  const respiro = 20;
+  const disponibile = window.innerHeight - cima - respiro;
+
+  const riga = Math.max(
+    FASCIA_MINIMA,
+    Math.min(FASCIA_MASSIMA, Math.floor(disponibile / quante)),
   );
+  agenda.style.setProperty('--riga', `${riga}px`);
+  agenda.classList.toggle('compatta', riga < FASCIA_A_UNA_RIGA);
 }
 
 // ---------------------------------------------------------------------------
@@ -1046,6 +1075,10 @@ function schermataStato(messaggio, { errore = false, riprova = null } = {}) {
 function sostituisci(contenuto) {
   radice.replaceChildren(contenuto);
   radice.classList.remove('avvio');
+  // Subito dopo l'inserimento nella pagina, quando le misure reali esistono
+  // ma il browser non ha ancora disegnato: l'agenda parte già della misura
+  // giusta, senza sobbalzi.
+  adattaAgenda();
 }
 
 async function disegna() {
@@ -1133,6 +1166,14 @@ const ridisegnaDati = () => disegna();
 // ---------------------------------------------------------------------------
 
 window.addEventListener('popstate', () => disegna());
+
+// Ridimensionando la finestra basta ricalcolare l'altezza della fascia:
+// non serve ridisegnare l'agenda né richiedere di nuovo i dati.
+let attesaRidimensionamento;
+window.addEventListener('resize', () => {
+  clearTimeout(attesaRidimensionamento);
+  attesaRidimensionamento = setTimeout(adattaAgenda, 120);
+});
 
 async function avvia() {
   try {

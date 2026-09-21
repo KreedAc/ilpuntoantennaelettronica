@@ -42,12 +42,13 @@
   --pericolo-chiaro: #fdecea;
   --velo: rgba(23, 25, 51, 0.4);
 
-  /* Altezza di una fascia da 30 minuti. app.js legge QUESTO valore per
-     posizionare i blocchi, quindi si cambia solo qui. Con 34px l'intera
-     giornata (08:00-19:00) sta in poco più di 700px e su uno schermo da
-     1080 si vede quasi tutta senza scorrere. */
+  /* Altezza di una fascia da 30 minuti. È solo il valore di partenza: app.js
+     lo ricalcola sull'altezza della finestra, così l'intera giornata si vede
+     senza scorrere sia su un portatile sia su un monitor grande. I blocchi
+     sono posizionati in funzione di questa variabile, quindi si spostano da
+     soli quando cambia. */
   --riga: 34px;
-  --blocco: 30px; /* altezza del blocco appuntamento */
+  --blocco: calc(var(--riga) - 3px);
   --ore: 58px;    /* larghezza della colonna degli orari */
 
   /* Oltre questa larghezza l'agenda smette di allargarsi e resta centrata:
@@ -352,7 +353,7 @@ h1, h2, h3 { margin: 0; font-weight: 600; letter-spacing: -0.01em; }
 /* Agenda settimanale                                                  */
 /* ------------------------------------------------------------------ */
 
-.agenda-contenitore { padding: 0 1.25rem 2rem; overflow-x: auto; }
+.agenda-contenitore { padding: 0 1.25rem 1rem; overflow-x: auto; }
 
 .agenda {
   min-width: 800px;
@@ -446,8 +447,15 @@ h1, h2, h3 { margin: 0; font-weight: 600; letter-spacing: -0.01em; }
   flex-direction: column;
   justify-content: center;
 }
-.blocco .prima { font-size: 12.5px; font-weight: 600; line-height: 1.2; }
-.blocco .seconda { font-size: 11.5px; line-height: 1.2; color: var(--testo-secondario); }
+.blocco .prima { font-size: 12px; font-weight: 600; line-height: 1.15; }
+.blocco .seconda { font-size: 10.5px; line-height: 1.15; color: var(--testo-secondario); }
+
+/* Quando la finestra è bassa le fasce si stringono e le due righe non ci
+   stanno più: resta l'ora con il nome, e l'indirizzo si legge passandoci
+   sopra il mouse o aprendo la scheda. Meglio una riga leggibile che due
+   tagliate a metà. */
+.agenda.compatta .blocco .seconda { display: none; }
+.agenda.compatta .blocco .prima { font-size: 11.5px; }
 .blocco .prima, .blocco .seconda {
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }

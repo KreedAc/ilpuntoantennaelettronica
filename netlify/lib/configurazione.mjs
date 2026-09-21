@@ -8,8 +8,8 @@
 /** Prima fascia della giornata. */
 export const ORA_INIZIO = '08:00';
 
-/** Chiusura: l'ultima fascia è quella che finisce a quest'ora (18:30 → 19:00). */
-export const ORA_FINE = '19:00';
+/** Chiusura: l'ultima fascia è quella che finisce a quest'ora (19:30 → 20:00). */
+export const ORA_FINE = '20:00';
 
 /** Durata di una fascia in minuti. Ogni appuntamento ne occupa esattamente una. */
 export const PASSO_MINUTI = 30;
@@ -34,7 +34,7 @@ export const FINESTRA_TENTATIVI_MINUTI = 15;
 export const COOKIE_SESSIONE = 'pa_sessione';
 
 /**
- * Elenco ordinato delle fasce ammesse, es. ['08:00', '08:30', …, '18:30'].
+ * Elenco ordinato delle fasce ammesse, es. ['08:00', '08:30', …, '19:30'].
  * Calcolato una volta sola all'avvio della funzione.
  */
 export const FASCE = (() => {

@@ -18,18 +18,27 @@ import { piuGiorni, lunedi, giornoSettimana, dataEstesa, intervalloSettimana } f
 import { cifra, verifica } from '../netlify/lib/password.mjs';
 
 describe('fasce orarie', () => {
-  test('vanno dalle 08:00 alle 18:30, di mezz\'ora in mezz\'ora', () => {
+  test('vanno dalle 08:00 alle 19:30, di mezz\'ora in mezz\'ora', () => {
     assert.equal(FASCE[0], '08:00');
-    assert.equal(FASCE.at(-1), '18:30');
-    assert.equal(FASCE.length, 22); // dalle 8 alle 19 sono 11 ore = 22 mezz'ore
+    assert.equal(FASCE.at(-1), '19:30');
+    assert.equal(FASCE.length, 24); // dalle 8 alle 20 sono 12 ore = 24 mezz'ore
+  });
+
+  test('nessun buco e nessun doppione nell\'elenco', () => {
+    assert.equal(new Set(FASCE).size, FASCE.length);
+    for (let i = 1; i < FASCE.length; i += 1) {
+      const minuti = (o) => Number(o.slice(0, 2)) * 60 + Number(o.slice(3));
+      assert.equal(minuti(FASCE[i]) - minuti(FASCE[i - 1]), 30, `salto fra ${FASCE[i - 1]} e ${FASCE[i]}`);
+    }
   });
 
   test('accetta solo gli orari allineati', () => {
     assert.ok(fasciaValida('08:00'));
     assert.ok(fasciaValida('15:30'));
+    assert.ok(fasciaValida('19:30'), 'l\'ultima fascia della giornata');
     assert.ok(!fasciaValida('15:15'), 'i quarti d\'ora non sono ammessi');
     assert.ok(!fasciaValida('07:30'), 'prima dell\'apertura');
-    assert.ok(!fasciaValida('19:00'), 'l\'ultima fascia inizia alle 18:30');
+    assert.ok(!fasciaValida('20:00'), 'l\'ultima fascia finisce alle 20:00');
   });
 
   test('la domenica non è fra i giorni lavorativi', () => {
@@ -167,7 +176,7 @@ describe('scheda cliente', () => {
   test('rifiuta gli orari fuori fascia', () => {
     assert.ok(validaAppuntamento({ ...buona, ora: '09:15' }).errori.ora);
     assert.ok(validaAppuntamento({ ...buona, ora: '07:00' }).errori.ora);
-    assert.ok(validaAppuntamento({ ...buona, ora: '19:00' }).errori.ora);
+    assert.ok(validaAppuntamento({ ...buona, ora: '20:00' }).errori.ora);
   });
 
   test('urgente accetta sia il booleano sia la stringa', () => {

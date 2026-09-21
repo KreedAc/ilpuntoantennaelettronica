@@ -183,9 +183,15 @@ prezzo restano dietro il login.
 
 ### Regole di funzionamento
 
-- Fasce da **30 minuti**, dalle **08:00 alle 18:30** (ultima che finisce alle 19:00).
+- Fasce da **30 minuti**, dalle **08:00 alle 19:30** (ultima che finisce alle 20:00).
   Si cambiano in **un punto solo**: `netlify/lib/configurazione.mjs`. L'interfaccia
   riceve l'elenco delle fasce dall'API, quindi non esiste una seconda copia.
+- **L'agenda si adatta all'altezza della finestra.** `app.js` calcola l'altezza
+  della fascia e la scrive nella variabile CSS `--riga`; righe, etichette orarie
+  e blocchi sono tutti espressi in funzione di quella variabile, quindi si
+  ricollocano da soli senza essere ridisegnati. I limiti sono 24–40 px: sotto i
+  28 px il blocco mostra solo ora e nome, e l'indirizzo si legge passandoci
+  sopra il mouse. In larghezza l'agenda si ferma a `--agenda-massima` (1400 px).
 - **Un appuntamento per fascia.** Lo garantisce un indice unico parziale nel
   database (`appuntamenti_una_per_fascia`), non solo un controllo nel codice:
   due salvataggi nello stesso istante non possono sovrapporsi.
