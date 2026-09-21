@@ -142,14 +142,13 @@ Se cambiano, aggiornare le pagine HTML **e** il JSON-LD in `index.html` (`openin
 - [x] **Email e profili social** in `contatti.html`, nel piè di pagina e nel JSON-LD (`email`, `sameAs`, `vatID`)
 - [x] **QR recensioni** + cartellino stampabile in `materiali/`
 - [x] **Informativa privacy** (`privacy.html`), linkata dal piè di pagina di tutte le pagine
-- [x] **Catalogo smartphone ricondizionati** in `telefonia-internet-lamezia-terme.html#ricondizionati`: 24 schede con foto, prezzo e link WhatsApp precompilato per prodotto
+- [x] **Catalogo smartphone ricondizionati**: pagina dedicata `smartphone-ricondizionati-lamezia-terme.html`, con voce propria nel menu e card in home. 24 schede con foto, prezzo e link WhatsApp precompilato per prodotto
 
 ### ⏳ Da fare
 
 - [ ] **Recensioni Google**: chiedere sempre a fine lavoro, con il QR in negozio. È il fattore n.1 del "local pack". ⚠️ Mai suggerire testi ai clienti né far scrivere recensioni a chi non è cliente: Google le rileva e rimuove, ed è vietato per legge (pratica commerciale ingannevole). Il canale legittimo per inserire le parole chiave è **rispondere** alle recensioni dal profilo dell'attività.
 - [ ] **Foto reali** del negozio e dei lavori: aggiungerle al sito (nomi file descrittivi + attributo `alt`) e alla scheda Google. **È la cosa che manca di più**: oggi il sito non contiene nessuna fotografia dell'attività.
-- [ ] **Search Console**: creare la proprietà per `ilpuntoantennaelettronica.com`, verificarla e inviare di nuovo la sitemap. La vecchia proprietà `.netlify.app` va tenuta finché Google non ha riscansionato tutto.
-- [ ] **Scheda Google e social**: aggiornare il link al sito con il nuovo dominio.
+- [ ] **Bio dei social**: controllare che il link nelle biografie Facebook e Instagram punti al dominio `.com` (sito e Search Console sono già allineati).
 - [ ] **Bonifica directory**: la scheda su PagineBianche riporta ancora il vecchio indirizzo (Via Perugini) e il fisso. Correggere o rimuovere tramite Italiaonline: dati discordanti confondono Google (NAP consistency).
 - [ ] **Catalogo ricondizionati**: prezzi e disponibilità sono fotografati al 31/07/2026 e vanno riallineati a ogni nuovo volantino del fornitore. La data compare in fondo alla sezione: aggiornarla insieme ai prezzi.
 - [ ] **Foto dei prodotti**: provengono dal volantino Evolution Level; una (`iphone-13.webp`) riporta la filigrana `©recommerce`. Chiedere al fornitore il pacchetto immagini per rivenditori.
@@ -164,9 +163,18 @@ Se cambiano, aggiornare le pagine HTML **e** il JSON-LD in `index.html` (`openin
 
 Il sito è collegato a Netlify: **ogni push sul branch pubblica automaticamente**.
 
-Per passare a un dominio proprio:
+Il dominio è **`https://ilpuntoantennaelettronica.com`**, gestito da Netlify (HTTPS automatico).
+La migrazione dall'indirizzo `.netlify.app` è conclusa: dominio attivo, proprietà Search
+Console verificata con sitemap inviata, link aggiornato sulla scheda Google Business.
 
-1. Acquistare il dominio (es. `ilpuntoantennaelettronica.it`).
-2. Netlify → Site settings → Domain management → Add domain, poi impostare i record DNS indicati (HTTPS è automatico).
-3. Sostituire `https://ilpuntoantennaelettronica.com` con il nuovo dominio in **tutti** i file HTML, `sitemap.xml` e `robots.txt`.
-4. Aggiornare il link sulla scheda Google Business e creare la nuova proprietà su Search Console (Netlify mantiene un redirect 301 dal vecchio indirizzo, quindi il lavoro di indicizzazione non si perde).
+Se un giorno il dominio dovesse cambiare, vanno toccati **tutti** i riferimenti assoluti:
+i tag `canonical`, `og:url` e `twitter:url` di ogni pagina, il JSON-LD (`url`, `logo`,
+`image`, `@id` dei breadcrumb), `sitemap.xml` e `robots.txt`. Per trovarli tutti:
+
+```bash
+grep -rn "ilpuntoantennaelettronica.com" --include="*.html" --include="*.xml" --include="*.txt" .
+```
+
+Vanno poi aggiornati il link sulla scheda Google Business, le bio dei social e la proprietà
+su Search Console. Netlify mantiene un redirect 301 dal vecchio indirizzo, quindi
+l'indicizzazione già guadagnata non si perde.
