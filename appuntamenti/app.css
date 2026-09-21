@@ -48,7 +48,6 @@
      sono posizionati in funzione di questa variabile, quindi si spostano da
      soli quando cambia. */
   --riga: 34px;
-  --blocco: calc(var(--riga) - 3px);
   --ore: 58px;    /* larghezza della colonna degli orari */
 
   /* Oltre questa larghezza l'agenda smette di allargarsi e resta centrata:
@@ -431,7 +430,13 @@ h1, h2, h3 { margin: 0; font-weight: 600; letter-spacing: -0.01em; }
   position: absolute;
   left: 4px;
   right: 4px;
-  height: var(--blocco);
+  /* L'altezza si calcola QUI e non in una variabile definita su :root: una
+     variabile che contiene var(--riga) viene risolta dove è dichiarata, cioè
+     con il valore iniziale di --riga, e non vedrebbe mai quello ricalcolato
+     da app.js sull'agenda. I 4px in meno lasciano 2px sopra e 2px sotto,
+     così due appuntamenti consecutivi restano staccati e fra loro si vede
+     la linea della mezz'ora. */
+  height: calc(var(--riga) - 4px);
   /* Niente spazio sopra e sotto: le due righe di testo occupano già quasi
      tutta l'altezza del blocco, e con dell'imbottitura verrebbero tagliate. */
   padding: 0 0.45rem;
@@ -447,13 +452,31 @@ h1, h2, h3 { margin: 0; font-weight: 600; letter-spacing: -0.01em; }
   flex-direction: column;
   justify-content: center;
 }
-.blocco .prima { font-size: 12px; font-weight: 600; line-height: 1.15; }
+.blocco .prima {
+  display: flex;
+  align-items: baseline;
+  gap: 0.3rem;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.15;
+}
+.blocco .quando-chi { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* flex: none — se il nome è lungo si accorcia il nome, mai questa parola. */
+.blocco .segno-urgente {
+  flex: none;
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--urgente-etichetta);
+}
+.blocco.urgente .segno-urgente { color: var(--urgente-testo); }
 .blocco .seconda { font-size: 10.5px; line-height: 1.15; color: var(--testo-secondario); }
 
 /* Quando la finestra è bassa le fasce si stringono e le due righe non ci
-   stanno più: resta l'ora con il nome, e l'indirizzo si legge passandoci
-   sopra il mouse o aprendo la scheda. Meglio una riga leggibile che due
-   tagliate a metà. */
+   stanno più: resta la prima, con ora, nome e l'eventuale "Urgente".
+   L'indirizzo si legge passandoci sopra il mouse o aprendo la scheda.
+   Meglio una riga leggibile che due tagliate a metà. */
 .agenda.compatta .blocco .seconda { display: none; }
 .agenda.compatta .blocco .prima { font-size: 11.5px; }
 .blocco .prima, .blocco .seconda {

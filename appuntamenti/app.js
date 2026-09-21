@@ -423,11 +423,14 @@ function vistaAgenda(inizioSettimana) {
         title: `${appuntamento.ora} · ${appuntamento.nomeCliente} · ${appuntamento.luogoImpianto}`,
         onclick: (e) => apriPannelloScheda(appuntamento.id, inizioSettimana, e.currentTarget),
       },
-        el('span', { class: 'prima', testo: `${appuntamento.ora} ${appuntamento.nomeCliente}` }),
-        el('span', {
-          class: 'seconda',
-          testo: (appuntamento.urgente ? 'Urgente · ' : '') + appuntamento.luogoImpianto,
-        }),
+        // "Urgente" sta sulla prima riga e non si accorcia mai: la seconda
+        // riga sparisce quando le fasce si stringono, e il colore da solo
+        // non basta a dire che un intervento è urgente.
+        el('span', { class: 'prima' },
+          el('span', { class: 'quando-chi', testo: `${appuntamento.ora} ${appuntamento.nomeCliente}` }),
+          appuntamento.urgente ? el('span', { class: 'segno-urgente', testo: 'Urgente' }) : null,
+        ),
+        el('span', { class: 'seconda', testo: appuntamento.luogoImpianto }),
       ));
     }
     corpo.append(colonna);
@@ -441,8 +444,12 @@ function vistaAgenda(inizioSettimana) {
  *  sopra il massimo si spreca spazio su uno schermo molto alto. */
 const FASCIA_MINIMA = 24;
 const FASCIA_MASSIMA = 40;
-/** Sotto questa altezza nel blocco ci sta una riga sola. */
-const FASCIA_A_UNA_RIGA = 28;
+/**
+ * Sotto questa altezza nel blocco ci sta una riga sola.
+ * Il blocco è alto `riga - 4`, e due righe di testo ne occupano circa 26:
+ * sotto i 30px verrebbero tagliate.
+ */
+const FASCIA_A_UNA_RIGA = 30;
 
 /**
  * Sceglie l'altezza della fascia in modo che l'intera giornata entri nella
