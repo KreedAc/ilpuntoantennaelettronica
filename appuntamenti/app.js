@@ -1561,6 +1561,28 @@ function sostituisci(contenuto) {
   adattaAgenda();
 }
 
+/**
+ * Segnale di attesa mentre si caricano i dati.
+ *
+ * NON si svuota la pagina: cambiando vista si resterebbe due secondi davanti a
+ * uno schermo bianco, che su rete mobile è il tempo che ci mette il database a
+ * svegliarsi. La vista attuale resta dov'è e compare solo una barra sottile in
+ * cima, finché il contenuto nuovo non è pronto a prenderne il posto.
+ */
+let barraAttesa = null;
+function mostraCaricamento(acceso) {
+  if (acceso) {
+    if (barraAttesa) return;
+    barraAttesa = el('div', { class: 'barra-caricamento', role: 'progressbar', 'aria-label': 'Caricamento' });
+    document.body.append(barraAttesa);
+    radice.setAttribute('aria-busy', 'true');
+  } else {
+    barraAttesa?.remove();
+    barraAttesa = null;
+    radice.removeAttribute('aria-busy');
+  }
+}
+
 async function disegna() {
   const mio = ++stato.disegnoCorrente;
   const r = rotta();
@@ -1592,7 +1614,10 @@ async function disegna() {
     return;
   }
 
-  sostituisci(schermataStato('Caricamento…'));
+  // Solo al primissimo ingresso non c'è ancora niente da mostrare: da lì in
+  // poi si tiene la vista precedente e si accende la barra.
+  if (radice.classList.contains('avvio')) sostituisci(schermataStato('Caricamento…'));
+  else mostraCaricamento(true);
 
   try {
     if (stato.utenti.length === 0) await caricaUtenti();
@@ -1639,6 +1664,10 @@ async function disegna() {
       return;
     }
     sostituisci(schermataStato(e.message, { errore: true, riprova: () => disegna() }));
+  } finally {
+    // Anche se il disegno è stato superato da uno più recente: la barra la
+    // spegne comunque chi l'ha accesa, altrimenti resterebbe lì per sempre.
+    if (mio === stato.disegnoCorrente) mostraCaricamento(false);
   }
 }
 

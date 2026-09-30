@@ -94,6 +94,34 @@ h1, h2, h3 { margin: 0; font-weight: 600; letter-spacing: -0.01em; }
   text-align: center;
 }
 
+/* Barra di attesa: una riga sottile in cima, mentre la vista precedente resta
+   a schermo. Sostituisce il vecchio "Caricamento…" a tutta pagina, che a ogni
+   cambio di vista faceva lampeggiare tutto. */
+.barra-caricamento {
+  position: fixed;
+  inset: 0 0 auto 0;
+  height: 3px;
+  z-index: 200;
+  background: var(--linea-leggera);
+  overflow: hidden;
+}
+.barra-caricamento::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  width: 35%;
+  background: var(--blu);
+  animation: scorre 0.9s ease-in-out infinite;
+}
+@keyframes scorre {
+  from { transform: translateX(-100%); }
+  to   { transform: translateX(340%); }
+}
+/* Con le animazioni ridotte resta una barra ferma: il segnale c'è comunque. */
+@media (prefers-reduced-motion: reduce) {
+  .barra-caricamento::after { width: 100%; animation: none; opacity: 0.5; }
+}
+
 .solo-lettori {
   position: absolute;
   width: 1px; height: 1px;
