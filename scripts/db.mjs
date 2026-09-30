@@ -117,6 +117,18 @@ async function comandoUtenti() {
   const ruolo = rispostaRuolo === '1' ? 'admin' : rispostaRuolo === '2' ? 'installatore' : null;
   if (!ruolo) { rl.close(); esci('Rispondi 1 oppure 2.'); }
 
+  // La posizione decide l'ordine delle colonne nell'agenda di Tiziana e il
+  // colore assegnato: 1 è la prima colonna a sinistra.
+  let posizione = 0;
+  if (ruolo === 'installatore') {
+    const r = (await rl.question('  Posizione nell\'agenda [1 = prima colonna, 2 = seconda…]: ')).trim();
+    posizione = Number(r);
+    if (!Number.isInteger(posizione) || posizione < 1) {
+      rl.close();
+      esci('La posizione dev\'essere un numero intero da 1 in su.');
+    }
+  }
+
   rl.close();
 
   const password = await chiediPassword('  Password (non viene mostrata): ');
@@ -131,18 +143,21 @@ async function comandoUtenti() {
 
   try {
     const [utente] = await database`
-      INSERT INTO utenti (email, password_hash, nome, ruolo)
-      VALUES (${email}, ${hash}, ${nome}, ${ruolo})
+      INSERT INTO utenti (email, password_hash, nome, ruolo, posizione, deve_cambiare_password)
+      VALUES (${email}, ${hash}, ${nome}, ${ruolo}, ${posizione}, true)
       ON CONFLICT (email) DO UPDATE
-        SET password_hash = EXCLUDED.password_hash,
-            nome          = EXCLUDED.nome,
-            ruolo         = EXCLUDED.ruolo
-      RETURNING id, email, nome, ruolo
+        SET password_hash          = EXCLUDED.password_hash,
+            nome                   = EXCLUDED.nome,
+            ruolo                  = EXCLUDED.ruolo,
+            posizione              = EXCLUDED.posizione,
+            deve_cambiare_password = true
+      RETURNING id, email, nome, ruolo, posizione
     `;
     console.log(
       `\n  Utente salvato: ${utente.nome} <${utente.email}> — ` +
-      `${utente.ruolo === 'admin' ? 'amministratore' : 'installatore'}\n`
+      `${utente.ruolo === 'admin' ? 'amministratore' : `installatore, colonna ${utente.posizione}`}\n`
     );
+    console.log('  Al primo accesso gli verrà chiesto di scegliere una password sua.\n');
     console.log('  Se l\'email esisteva già, la password è stata sostituita.\n');
   } catch (errore) {
     esci(`Errore dal database: ${errore.message}`);
@@ -166,17 +181,30 @@ async function comandoEsempi() {
   const database = sql();
   const inizioSettimana = lunedi(oggi());
 
+  // Gli esempi si distribuiscono fra gli installatori esistenti, a rotazione,
+  // e uno resta senza assegnatario per far vedere la striscia "Da assegnare".
+  const tecnici = await database`
+    SELECT id FROM utenti WHERE ruolo = 'installatore' ORDER BY posizione, id
+  `;
+  if (tecnici.length === 0) {
+    console.log('\n  Nessun installatore: gli esempi resteranno tutti da assegnare.');
+  }
+
   console.log('\n  Inserisco gli appuntamenti di prova nella settimana corrente…\n');
   let inseriti = 0;
 
-  for (const [nome, luogo, telefono, prezzo, scarto, ora, note, urgente] of ESEMPI) {
+  for (const [indice, riga] of ESEMPI.entries()) {
+    const [nome, luogo, telefono, prezzo, scarto, ora, note, urgente] = riga;
     const data = piuGiorni(inizioSettimana, scarto);
+    const assegnato = indice === 2 || tecnici.length === 0
+      ? null
+      : tecnici[indice % tecnici.length].id;
     try {
       await database`
         INSERT INTO appuntamenti
-          (nome_cliente, luogo_impianto, telefono_cliente, prezzo_centesimi, data, ora, note, urgente)
+          (nome_cliente, luogo_impianto, telefono_cliente, prezzo_centesimi, data, ora, note, urgente, assegnato_a)
         VALUES
-          (${nome}, ${luogo}, ${telefono}, ${prezzoInCentesimi(prezzo)}, ${data}, ${ora}, ${note}, ${urgente})
+          (${nome}, ${luogo}, ${telefono}, ${prezzoInCentesimi(prezzo)}, ${data}, ${ora}, ${note}, ${urgente}, ${assegnato})
       `;
       console.log(`  ✓ ${data} ${ora}  ${nome}`);
       inseriti += 1;

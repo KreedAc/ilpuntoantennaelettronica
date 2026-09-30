@@ -4,12 +4,13 @@
 // /api/. Netlify la instrada da sé grazie a `config.path` in fondo al file:
 // non serve nessun reindirizzamento in netlify.toml.
 //
-// Due principi che valgono per ogni endpoint:
+// Tre principi che valgono per ogni endpoint:
 //
 //  1. I permessi si controllano QUI. Nascondere un pulsante nell'interfaccia
 //     non è una protezione: un installatore che chiamasse a mano un endpoint
-//     di scrittura deve ricevere 403, e lo riceve.
-//  2. Niente dati dei clienti nei log. Gli errori si registrano per tipo, mai
+//     su un appuntamento non suo deve ricevere 403, e lo riceve.
+//  2. Chi compie un'azione non viene avvisato della propria azione.
+//  3. Niente dati dei clienti nei log. Gli errori si registrano per tipo, mai
 //     con il contenuto della richiesta.
 
 import { sql } from '../lib/db.mjs';
@@ -18,7 +19,7 @@ import {
   improntaSessioneCorrente,
 } from '../lib/sessione.mjs';
 import { verifica, cifra, bruciaTempo, LUNGHEZZA_MINIMA } from '../lib/password.mjs';
-import { avvisaInstallatori, chiavePubblica } from '../lib/push.mjs';
+import { avvisa, chiavePubblica, conNotificheAttive } from '../lib/push.mjs';
 import {
   FASCE, ORA_INIZIO, ORA_FINE, PASSO_MINUTI,
   TENTATIVI_MASSIMI, FINESTRA_TENTATIVI_MINUTI,
@@ -49,6 +50,7 @@ function risposta(corpo, stato = 200, intestazioniExtra = {}) {
 }
 
 const errore = (messaggio, stato, extra = {}) => risposta({ errore: messaggio, ...extra }, stato);
+const NON_TUO = 'Puoi modificare solo gli interventi assegnati a te';
 
 // ---------------------------------------------------------------------------
 // Lettura del corpo della richiesta
@@ -125,17 +127,24 @@ async function segnaTentativo(chiave) {
 
 // `data` e `ora` escono dal database già come testo: così nessuna conversione
 // automatica del driver può spostare un appuntamento di un giorno o di un'ora.
+// Il nome dell'assegnatario arriva da una giunzione, perché serve a ogni vista
+// e chiederlo a parte significherebbe una query per riga.
+const TABELLE = `FROM appuntamenti a LEFT JOIN utenti u ON u.id = a.assegnato_a`;
+
 const SELEZIONE = `
-  id,
-  nome_cliente,
-  luogo_impianto,
-  telefono_cliente,
-  prezzo_centesimi,
-  to_char(data, 'YYYY-MM-DD') AS data,
-  to_char(ora,  'HH24:MI')    AS ora,
-  note,
-  urgente,
-  stato
+  a.id,
+  a.nome_cliente,
+  a.luogo_impianto,
+  a.telefono_cliente,
+  a.prezzo_centesimi,
+  to_char(a.data, 'YYYY-MM-DD') AS data,
+  to_char(a.ora,  'HH24:MI')    AS ora,
+  a.note,
+  a.urgente,
+  a.stato,
+  a.assegnato_a,
+  u.nome AS assegnato_nome,
+  to_char(a.fatto_il AT TIME ZONE 'Europe/Rome', 'HH24:MI') AS fatto_alle
 `;
 
 function perIlBrowser(riga) {
@@ -145,18 +154,27 @@ function perIlBrowser(riga) {
     luogoImpianto: riga.luogo_impianto,
     telefonoCliente: riga.telefono_cliente,
     telefonoPerChiamata: telefonoPerChiamata(riga.telefono_cliente),
+    // Per l'installatore che deve raggiungere l'indirizzo. Apre l'app mappe
+    // predefinita del telefono, senza chiavi né tracciamenti da parte nostra.
+    mappa: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(riga.luogo_impianto)}`,
     prezzoCentesimi: riga.prezzo_centesimi,
     prezzoConcordato: centesimiInPrezzo(riga.prezzo_centesimi),
     data: riga.data,
     ora: riga.ora,
     note: riga.note,
     urgente: riga.urgente,
+    stato: riga.stato,
+    fatto: riga.stato === 'fatto',
+    fattoAlle: riga.fatto_alle,
+    assegnatoA: riga.assegnato_a,
+    assegnatoNome: riga.assegnato_nome,
   };
 }
 
+/** Legge un appuntamento non annullato, con il nome dell'assegnatario. */
 async function leggiAppuntamento(id) {
   const righe = await sql().query(
-    `SELECT ${SELEZIONE} FROM appuntamenti WHERE id = $1 AND stato = 'attivo' LIMIT 1`,
+    `SELECT ${SELEZIONE} ${TABELLE} WHERE a.id = $1 AND a.stato <> 'annullato' LIMIT 1`,
     [id],
   );
   return righe[0] ?? null;
@@ -164,11 +182,88 @@ async function leggiAppuntamento(id) {
 
 /** Riconosce il rifiuto dell'indice unico parziale sulla fascia. */
 function fasciaOccupata(e) {
-  return e?.code === '23505' || String(e?.message ?? '').includes('appuntamenti_una_per_fascia');
+  return e?.code === '23505' || String(e?.message ?? '').includes('una_per_fascia');
+}
+
+const occupata = (chi) => errore(
+  chi ? `${chi} ha già un intervento in questa fascia` : 'Fascia già occupata',
+  409,
+  { campi: { ora: 'Fascia già occupata' } },
+);
+
+/**
+ * Chi può toccare questo appuntamento.
+ * L'amministratore tutto; l'installatore soltanto quelli assegnati a lui.
+ * Un intervento ancora da assegnare è quindi di sola Tiziana, ed è giusto:
+ * è lei che decide chi ci va.
+ */
+function puoToccare(utente, appuntamento) {
+  return utente.ruolo === 'admin' || appuntamento.assegnato_a === utente.id;
 }
 
 // ---------------------------------------------------------------------------
-// Endpoint
+// Utenti
+// ---------------------------------------------------------------------------
+
+async function elencoUtenti() {
+  return await sql()`
+    SELECT id, nome, ruolo, posizione
+    FROM utenti
+    ORDER BY posizione, id
+  `;
+}
+
+async function idsAmministratori() {
+  const righe = await sql()`SELECT id FROM utenti WHERE ruolo = 'admin'`;
+  return righe.map((r) => r.id);
+}
+
+/** L'id esiste ed è di un installatore? Serve prima di assegnare. */
+async function installatoreValido(id) {
+  if (!Number.isInteger(id)) return false;
+  const righe = await sql()`
+    SELECT 1 FROM utenti WHERE id = ${id} AND ruolo = 'installatore' LIMIT 1
+  `;
+  return righe.length > 0;
+}
+
+// ---------------------------------------------------------------------------
+// Notifiche
+// ---------------------------------------------------------------------------
+
+/**
+ * Avvisa chi deve sapere, mai chi ha appena agito.
+ *
+ * Nella notifica finiscono solo giorno, ora e nome del cliente: indirizzo,
+ * telefono e prezzo restano nel pannello, dietro il login.
+ */
+async function notifica(titolo, appuntamento, attore, { anche = [] } = {}) {
+  try {
+    const destinatari = [appuntamento.assegnato_a, ...anche]
+      .filter((id) => Number.isInteger(id) && id !== attore.id);
+    if (destinatari.length === 0) return;
+
+    const quando = dataEstesa(appuntamento.data, { conAnno: false });
+    await avvisa(destinatari, {
+      titolo,
+      testo: `${quando} alle ${appuntamento.ora} · ${appuntamento.nome_cliente}` +
+             (appuntamento.urgente ? ' · Urgente' : ''),
+      url: `/appuntamenti/?vista=giorno&giorno=${appuntamento.data}`,
+      tag: `app-${appuntamento.id}`,
+    });
+  } catch (e) {
+    // Un problema con le notifiche non deve far fallire il salvataggio.
+    console.warn('Notifica non inviata:', e?.message);
+  }
+}
+
+/** Gli amministratori, da avvisare quando è un installatore a muovere qualcosa. */
+async function ancheGliAdmin(attore) {
+  return attore.ruolo === 'admin' ? [] : await idsAmministratori();
+}
+
+// ---------------------------------------------------------------------------
+// Accesso
 // ---------------------------------------------------------------------------
 
 async function postLogin(req) {
@@ -194,7 +289,7 @@ async function postLogin(req) {
   }
 
   const righe = await sql()`
-    SELECT id, nome, email, ruolo, password_hash
+    SELECT id, nome, email, ruolo, password_hash, deve_cambiare_password
     FROM utenti
     WHERE lower(email) = ${email}
     LIMIT 1
@@ -225,6 +320,7 @@ async function postLogin(req) {
 /** I dati dell'utente che il browser può conoscere. Mai il digest della password. */
 function perIlPannello(utente) {
   return {
+    id: utente.id,
     nome: utente.nome,
     email: utente.email,
     ruolo: utente.ruolo,
@@ -232,11 +328,6 @@ function perIlPannello(utente) {
   };
 }
 
-/**
- * Cambio della password, da parte dell'utente stesso.
- * Serve anche a chiudere il primo accesso, quando l'account è stato creato da
- * qualcun altro con una password provvisoria.
- */
 async function postPassword(req, utente) {
   const corpo = await leggiJson(req);
   const attuale = String(corpo?.attuale ?? '');
@@ -286,7 +377,11 @@ async function postLogout(req) {
   return risposta({ uscito: true }, 200, { 'Set-Cookie': cookie });
 }
 
-async function getAppuntamenti(req, url) {
+// ---------------------------------------------------------------------------
+// Appuntamenti
+// ---------------------------------------------------------------------------
+
+async function getAppuntamenti(url) {
   const dal = url.searchParams.get('dal');
   const al = url.searchParams.get('al');
 
@@ -302,86 +397,126 @@ async function getAppuntamenti(req, url) {
     return errore('Intervallo troppo ampio: al massimo 92 giorni', 400);
   }
 
+  // Gli annullati non compaiono in nessuna vista; i fatti sì, barrati.
   const righe = await sql().query(
-    `SELECT ${SELEZIONE} FROM appuntamenti
-     WHERE stato = 'attivo' AND data BETWEEN $1 AND $2
-     ORDER BY data, ora`,
+    `SELECT ${SELEZIONE} ${TABELLE}
+     WHERE a.stato <> 'annullato' AND a.data BETWEEN $1 AND $2
+     ORDER BY a.data, a.ora, a.id`,
     [dal, al],
   );
   return risposta({ appuntamenti: righe.map(perIlBrowser) });
 }
 
+/**
+ * A chi va assegnato un appuntamento in creazione.
+ * L'installatore può crearne solo di suoi: qualunque cosa chieda, il lavoro
+ * resta suo. Tiziana può assegnarlo a chi vuole o lasciarlo da assegnare.
+ */
+async function assegnatarioRichiesto(corpo, utente) {
+  if (utente.ruolo !== 'admin') return { id: utente.id };
+
+  const grezzo = corpo?.assegnatoA;
+  if (grezzo === null || grezzo === undefined || grezzo === '') return { id: null };
+
+  const id = Number(grezzo);
+  if (!(await installatoreValido(id))) {
+    return { errore: 'Installatore non valido' };
+  }
+  return { id };
+}
+
 async function postAppuntamento(req, utente) {
   const corpo = await leggiJson(req);
   const { valori, errori } = validaAppuntamento(corpo);
+
+  const assegnatario = await assegnatarioRichiesto(corpo, utente);
+  if (assegnatario.errore) errori.assegnatoA = assegnatario.errore;
+
   if (Object.keys(errori).length > 0) {
     return risposta({ errore: 'Controlla i campi segnalati', campi: errori }, 400);
   }
 
-  let creato;
+  let id;
   try {
     const righe = await sql().query(
       `INSERT INTO appuntamenti
          (nome_cliente, luogo_impianto, telefono_cliente, prezzo_centesimi,
-          data, ora, note, urgente, creato_da)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-       RETURNING ${SELEZIONE}`,
+          data, ora, note, urgente, assegnato_a, creato_da)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+       RETURNING id`,
       [
         valori.nomeCliente, valori.luogoImpianto, valori.telefonoCliente,
         valori.prezzoCentesimi, valori.data, valori.ora, valori.note,
-        valori.urgente, utente.id,
+        valori.urgente, assegnatario.id, utente.id,
       ],
     );
-    creato = righe[0];
+    id = righe[0].id;
   } catch (e) {
-    if (fasciaOccupata(e)) return errore('Fascia già occupata', 409, { campi: { ora: 'Fascia già occupata' } });
+    if (fasciaOccupata(e)) return occupata(null);
     throw e;
   }
 
-  await notifica('Nuovo appuntamento', creato);
+  const creato = await leggiAppuntamento(id);
+  await notifica('Nuovo intervento', creato, utente, { anche: await ancheGliAdmin(utente) });
   return risposta({ appuntamento: perIlBrowser(creato) }, 201);
 }
 
-async function patchAppuntamento(req, id) {
+async function patchAppuntamento(req, id, utente) {
   const esistente = await leggiAppuntamento(id);
   if (!esistente) return errore('Appuntamento non trovato', 404);
+  if (!puoToccare(utente, esistente)) return errore(NON_TUO, 403);
 
   const corpo = await leggiJson(req);
   const { valori, errori } = validaAppuntamento(corpo);
+
+  // Solo Tiziana può cambiare l'assegnatario da questa schermata; per
+  // l'installatore resta quello che c'era (per passare un lavoro a un collega
+  // esiste /assegna, che avvisa le persone giuste).
+  let assegnatoA = esistente.assegnato_a;
+  if (utente.ruolo === 'admin' && 'assegnatoA' in (corpo ?? {})) {
+    const scelto = await assegnatarioRichiesto(corpo, utente);
+    if (scelto.errore) errori.assegnatoA = scelto.errore;
+    else assegnatoA = scelto.id;
+  }
+
   if (Object.keys(errori).length > 0) {
     return risposta({ errore: 'Controlla i campi segnalati', campi: errori }, 400);
   }
 
-  let aggiornato;
   try {
     const righe = await sql().query(
       `UPDATE appuntamenti SET
          nome_cliente = $1, luogo_impianto = $2, telefono_cliente = $3,
          prezzo_centesimi = $4, data = $5, ora = $6, note = $7, urgente = $8,
-         aggiornato_il = now()
-       WHERE id = $9 AND stato = 'attivo'
-       RETURNING ${SELEZIONE}`,
+         assegnato_a = $9, aggiornato_il = now()
+       WHERE id = $10 AND stato <> 'annullato'
+       RETURNING id`,
       [
         valori.nomeCliente, valori.luogoImpianto, valori.telefonoCliente,
         valori.prezzoCentesimi, valori.data, valori.ora, valori.note,
-        valori.urgente, id,
+        valori.urgente, assegnatoA, id,
       ],
     );
-    aggiornato = righe[0];
+    if (righe.length === 0) return errore('Appuntamento non trovato', 404);
   } catch (e) {
-    if (fasciaOccupata(e)) return errore('Fascia già occupata', 409, { campi: { ora: 'Fascia già occupata' } });
+    if (fasciaOccupata(e)) return occupata(esistente.assegnato_nome);
     throw e;
   }
 
-  if (!aggiornato) return errore('Appuntamento non trovato', 404);
-
+  const aggiornato = await leggiAppuntamento(id);
   const spostato = aggiornato.data !== esistente.data || aggiornato.ora !== esistente.ora;
-  await notifica(spostato ? 'Appuntamento spostato' : 'Appuntamento aggiornato', aggiornato);
+  await notifica(
+    spostato ? 'Intervento spostato' : 'Intervento aggiornato',
+    aggiornato, utente,
+    { anche: [...(await ancheGliAdmin(utente)), esistente.assegnato_a] },
+  );
   return risposta({ appuntamento: perIlBrowser(aggiornato) });
 }
 
-async function patchRimanda(req, id) {
-  if (!(await leggiAppuntamento(id))) return errore('Appuntamento non trovato', 404);
+async function patchRimanda(req, id, utente) {
+  const esistente = await leggiAppuntamento(id);
+  if (!esistente) return errore('Appuntamento non trovato', 404);
+  if (!puoToccare(utente, esistente)) return errore(NON_TUO, 403);
 
   const corpo = await leggiJson(req);
   const { valori, errori } = validaSpostamento(corpo);
@@ -389,61 +524,116 @@ async function patchRimanda(req, id) {
     return risposta({ errore: 'Controlla i campi segnalati', campi: errori }, 400);
   }
 
-  let spostato;
   try {
     // Solo data e ora: tutto il resto della scheda resta com'era.
     const righe = await sql().query(
       `UPDATE appuntamenti SET data = $1, ora = $2, aggiornato_il = now()
-       WHERE id = $3 AND stato = 'attivo'
-       RETURNING ${SELEZIONE}`,
+       WHERE id = $3 AND stato <> 'annullato'
+       RETURNING id`,
       [valori.data, valori.ora, id],
     );
-    spostato = righe[0];
+    if (righe.length === 0) return errore('Appuntamento non trovato', 404);
   } catch (e) {
-    if (fasciaOccupata(e)) return errore('Fascia già occupata', 409, { campi: { ora: 'Fascia già occupata' } });
+    if (fasciaOccupata(e)) return occupata(esistente.assegnato_nome);
     throw e;
   }
 
-  if (!spostato) return errore('Appuntamento non trovato', 404);
-
-  await notifica('Appuntamento spostato', spostato);
+  const spostato = await leggiAppuntamento(id);
+  await notifica('Intervento spostato', spostato, utente, { anche: await ancheGliAdmin(utente) });
   return risposta({ appuntamento: perIlBrowser(spostato) });
 }
 
-async function postAnnulla(req, id) {
-  const righe = await sql().query(
-    `UPDATE appuntamenti SET stato = 'annullato', aggiornato_il = now()
-     WHERE id = $1 AND stato = 'attivo'
-     RETURNING ${SELEZIONE}`,
+/** Passaggio di consegne, e assegnazione dal mucchio "da assegnare". */
+async function patchAssegna(req, id, utente) {
+  const esistente = await leggiAppuntamento(id);
+  if (!esistente) return errore('Appuntamento non trovato', 404);
+  if (!puoToccare(utente, esistente)) return errore(NON_TUO, 403);
+
+  const corpo = await leggiJson(req);
+  const grezzo = corpo?.assegnatoA;
+  const nessuno = grezzo === null || grezzo === undefined || grezzo === '';
+
+  if (!nessuno && !(await installatoreValido(Number(grezzo)))) {
+    return errore('Installatore non valido', 400);
+  }
+  const nuovo = nessuno ? null : Number(grezzo);
+  if (nuovo === esistente.assegnato_a) {
+    return risposta({ appuntamento: perIlBrowser(esistente) });
+  }
+
+  try {
+    const righe = await sql().query(
+      `UPDATE appuntamenti SET assegnato_a = $1, aggiornato_il = now()
+       WHERE id = $2 AND stato <> 'annullato'
+       RETURNING id`,
+      [nuovo, id],
+    );
+    if (righe.length === 0) return errore('Appuntamento non trovato', 404);
+  } catch (e) {
+    if (fasciaOccupata(e)) {
+      return errore(
+        'Chi hai scelto ha già un intervento in quella fascia',
+        409,
+        { campi: { assegnatoA: 'Fascia già occupata' } },
+      );
+    }
+    throw e;
+  }
+
+  const aggiornato = await leggiAppuntamento(id);
+  // Avvisiamo chi lo riceve, chi lo perde, e Tiziana se la mossa è partita da
+  // un installatore: deve sapere chi va dove.
+  await notifica('Intervento assegnato a te', aggiornato, utente, {
+    anche: [...(await ancheGliAdmin(utente)), esistente.assegnato_a],
+  });
+  return risposta({ appuntamento: perIlBrowser(aggiornato) });
+}
+
+/** Segna l'intervento come eseguito, o torna indietro se è stato un errore. */
+async function postFatto(req, id, utente) {
+  const esistente = await leggiAppuntamento(id);
+  if (!esistente) return errore('Appuntamento non trovato', 404);
+  if (!puoToccare(utente, esistente)) return errore(NON_TUO, 403);
+
+  const corpo = await leggiJson(req);
+  const fatto = corpo?.fatto !== false; // senza corpo, l'intenzione è segnarlo fatto
+
+  await sql().query(
+    `UPDATE appuntamenti
+     SET stato = $1, fatto_il = $2, aggiornato_il = now()
+     WHERE id = $3 AND stato <> 'annullato'`,
+    [fatto ? 'fatto' : 'attivo', fatto ? new Date().toISOString() : null, id],
+  );
+
+  const aggiornato = await leggiAppuntamento(id);
+  await notifica(
+    fatto ? 'Intervento completato' : 'Intervento riaperto',
+    aggiornato, utente,
+    { anche: await idsAmministratori() },
+  );
+  return risposta({ appuntamento: perIlBrowser(aggiornato) });
+}
+
+async function postAnnulla(req, id, utente) {
+  const esistente = await leggiAppuntamento(id);
+  if (!esistente) return errore('Appuntamento non trovato', 404);
+  if (!puoToccare(utente, esistente)) return errore(NON_TUO, 403);
+
+  await sql().query(
+    `UPDATE appuntamenti SET stato = 'annullato', fatto_il = NULL, aggiornato_il = now()
+     WHERE id = $1`,
     [id],
   );
-  const annullato = righe[0];
-  if (!annullato) return errore('Appuntamento non trovato', 404);
 
-  await notifica('Appuntamento annullato', annullato);
-  return risposta({ annullato: true, id: annullato.id });
+  await notifica('Intervento annullato', esistente, utente, {
+    anche: await idsAmministratori(),
+  });
+  return risposta({ annullato: true, id });
 }
 
-/**
- * Avvisa gli installatori. Nella notifica finiscono solo giorno, ora e nome:
- * indirizzo, telefono e prezzo restano nel pannello, dietro il login.
- */
-async function notifica(titolo, appuntamento) {
-  try {
-    const quando = dataEstesa(appuntamento.data, { conAnno: false });
-    await avvisaInstallatori({
-      titolo,
-      testo: `${quando} alle ${appuntamento.ora} · ${appuntamento.nome_cliente}` +
-             (appuntamento.urgente ? ' · Urgente' : ''),
-      url: `/appuntamenti/?vista=giorno&giorno=${appuntamento.data}`,
-    });
-  } catch (e) {
-    // Un problema con le notifiche non deve far fallire il salvataggio.
-    console.warn('Notifica non inviata:', e?.message);
-  }
-}
-
-// --- notifiche push: iscrizione dei dispositivi ----------------------------
+// ---------------------------------------------------------------------------
+// Notifiche push: iscrizione dei dispositivi
+// ---------------------------------------------------------------------------
 
 async function postIscrizionePush(req, utente) {
   const corpo = await leggiJson(req);
@@ -535,9 +725,25 @@ export default async (req) => {
       return errore('Devi prima scegliere una password tua', 403, { cambiaPassword: true });
     }
 
-    // --- lettura: admin e installatore ------------------------------------
+    // --- lettura: entrambi i ruoli vedono tutto ---------------------------
+    // Michele e Alessandro si vedono fra loro: sapere che il collega è già in
+    // zona serve, ed evita due interventi allo stesso indirizzo.
+    if (percorso === '/utenti' && metodo === 'GET') {
+      const utenti = await elencoUtenti();
+      const conNotifiche = await conNotificheAttive(utenti.map((u) => u.id));
+      return risposta({
+        utenti: utenti.map((u) => ({
+          id: u.id,
+          nome: u.nome,
+          ruolo: u.ruolo,
+          posizione: u.posizione,
+          notificheAttive: conNotifiche.has(u.id),
+        })),
+      });
+    }
+
     if (percorso === '/appuntamenti' && metodo === 'GET') {
-      return await getAppuntamenti(req, url);
+      return await getAppuntamenti(url);
     }
 
     const dettaglio = /^\/appuntamenti\/(\d+)$/.exec(percorso);
@@ -553,28 +759,31 @@ export default async (req) => {
       if (metodo === 'DELETE') return await deleteIscrizionePush(req, utente);
     }
 
-    // --- scrittura: solo amministratore -----------------------------------
-    const scritture =
-      (percorso === '/appuntamenti' && metodo === 'POST') ||
-      (metodo !== 'GET' && /^\/appuntamenti\/\d+(\/(rimanda|annulla))?$/.test(percorso));
-
-    if (scritture && utente.ruolo !== 'admin') {
-      return errore('Questa operazione è riservata all\'amministratore', 403);
-    }
-
+    // --- scrittura --------------------------------------------------------
+    // Non c'è più un blocco unico per ruolo: ogni handler controlla se
+    // l'appuntamento è di chi lo sta toccando (`puoToccare`), perché ora
+    // l'installatore può agire, ma solo sui propri.
     if (percorso === '/appuntamenti' && metodo === 'POST') {
       return await postAppuntamento(req, utente);
     }
     if (dettaglio && metodo === 'PATCH') {
-      return await patchAppuntamento(req, Number(dettaglio[1]));
+      return await patchAppuntamento(req, Number(dettaglio[1]), utente);
     }
     const rimanda = /^\/appuntamenti\/(\d+)\/rimanda$/.exec(percorso);
     if (rimanda && metodo === 'PATCH') {
-      return await patchRimanda(req, Number(rimanda[1]));
+      return await patchRimanda(req, Number(rimanda[1]), utente);
+    }
+    const assegna = /^\/appuntamenti\/(\d+)\/assegna$/.exec(percorso);
+    if (assegna && metodo === 'PATCH') {
+      return await patchAssegna(req, Number(assegna[1]), utente);
+    }
+    const segnaFatto = /^\/appuntamenti\/(\d+)\/fatto$/.exec(percorso);
+    if (segnaFatto && metodo === 'POST') {
+      return await postFatto(req, Number(segnaFatto[1]), utente);
     }
     const annulla = /^\/appuntamenti\/(\d+)\/annulla$/.exec(percorso);
     if (annulla && metodo === 'POST') {
-      return await postAnnulla(req, Number(annulla[1]));
+      return await postAnnulla(req, Number(annulla[1]), utente);
     }
 
     return errore('Indirizzo non trovato', 404);

@@ -34,28 +34,36 @@ export function chiavePubblica() {
 }
 
 /**
- * Manda una notifica a tutti i dispositivi degli installatori.
+ * Manda una notifica ai dispositivi degli utenti indicati.
+ *
+ * `destinatari` è un elenco di id utente. I valori vuoti vengono ignorati, e
+ * l'elenco viene ripulito dai doppioni: capita di chiamare questa funzione con
+ * "l'assegnatario e l'amministratore" quando sono la stessa persona.
+ *
+ * `tag` distingue le notifiche fra loro sul telefono. Usiamo un'etichetta per
+ * appuntamento (`app-12`): così due lavori assegnati di fila si accumulano
+ * invece di sostituirsi, mentre un aggiornamento sullo stesso appuntamento
+ * rimpiazza la notifica precedente invece di aggiungersene un'altra.
  *
  * Non fallisce mai in modo rumoroso: se le push non sono configurate, o se un
- * dispositivo non risponde, l'appuntamento resta salvato lo stesso. Salvare è
+ * dispositivo non risponde, l'operazione sul database resta valida. Salvare è
  * la cosa importante; avvisare è un di più.
- *
- * Le iscrizioni che il servizio push dichiara morte (404 / 410) vengono
- * cancellate, così la tabella non si riempie di dispositivi che non esistono.
  */
-export async function avvisaInstallatori({ titolo, testo, url }) {
+export async function avvisa(destinatari, { titolo, testo, url, tag = 'appuntamenti' }) {
   if (!preparaVapid()) return { inviate: 0, motivo: 'chiavi VAPID non configurate' };
+
+  const ids = [...new Set((destinatari ?? []).filter((x) => Number.isInteger(x)))];
+  if (ids.length === 0) return { inviate: 0, motivo: 'nessun destinatario' };
 
   const database = sql();
   const iscrizioni = await database`
-    SELECT i.endpoint, i.p256dh, i.auth
-    FROM push_iscrizioni i
-    JOIN utenti u ON u.id = i.utente_id
-    WHERE u.ruolo = 'installatore'
+    SELECT endpoint, p256dh, auth
+    FROM push_iscrizioni
+    WHERE utente_id = ANY(${ids})
   `;
   if (iscrizioni.length === 0) return { inviate: 0, motivo: 'nessun dispositivo iscritto' };
 
-  const carico = JSON.stringify({ titolo, testo, url });
+  const carico = JSON.stringify({ titolo, testo, url, tag });
   const scaduti = [];
   let inviate = 0;
 
@@ -68,6 +76,9 @@ export async function avvisaInstallatori({ titolo, testo, url }) {
       );
       inviate += 1;
     } catch (errore) {
+      // 404 e 410 vogliono dire che quel dispositivo non esiste più: l'app è
+      // stata disinstallata, o il browser ha ripulito i dati. Si cancella,
+      // altrimenti la tabella si riempie di indirizzi morti.
       if (errore?.statusCode === 404 || errore?.statusCode === 410) {
         scaduti.push(i.endpoint);
       } else {
@@ -81,4 +92,14 @@ export async function avvisaInstallatori({ titolo, testo, url }) {
     await database`DELETE FROM push_iscrizioni WHERE endpoint = ANY(${scaduti})`;
   }
   return { inviate, rimossi: scaduti.length };
+}
+
+/** Chi, fra questi utenti, ha almeno un dispositivo iscritto alle notifiche. */
+export async function conNotificheAttive(ids) {
+  const elenco = [...new Set((ids ?? []).filter((x) => Number.isInteger(x)))];
+  if (elenco.length === 0) return new Set();
+  const righe = await sql()`
+    SELECT DISTINCT utente_id FROM push_iscrizioni WHERE utente_id = ANY(${elenco})
+  `;
+  return new Set(righe.map((r) => r.utente_id));
 }

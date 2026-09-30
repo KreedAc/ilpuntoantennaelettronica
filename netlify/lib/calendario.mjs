@@ -16,6 +16,22 @@ export function oggi() {
   return FORMATO_ISO.format(new Date());
 }
 
+const FORMATO_ORA = new Intl.DateTimeFormat('it-IT', {
+  timeZone: FUSO, hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+});
+
+/**
+ * L'ora attuale a Lamezia Terme, come { ore, minuti }.
+ * Serve alla funzione dei promemoria: il cron di Netlify ragiona in UTC, e
+ * un orario fisso si sposterebbe di un'ora a ogni cambio di ora legale.
+ * Facendola partire spesso e lasciando decidere a lei sull'ora italiana, il
+ * problema non si pone.
+ */
+export function oraItaliana(quando = new Date()) {
+  const [ore, minuti] = FORMATO_ORA.format(quando).split(':').map(Number);
+  return { ore, minuti };
+}
+
 function aUTC(dataISO) {
   const [a, m, g] = dataISO.split('-').map(Number);
   return new Date(Date.UTC(a, m - 1, g));

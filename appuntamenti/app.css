@@ -38,6 +38,10 @@
   --urgente-testo: #3d2200;
   --urgente-etichetta: #7a3f00;
 
+  --fatto: #0f7b6c;
+  --fatto-fondo: #f2f4f7;
+  --fatto-bordo: #dcdeea;
+
   --pericolo: #b3261e;
   --pericolo-chiaro: #fdecea;
   --velo: rgba(23, 25, 51, 0.4);
@@ -347,6 +351,87 @@ h1, h2, h3 { margin: 0; font-weight: 600; letter-spacing: -0.01em; }
   background: var(--app-fondo); border: 1px solid var(--app-bordo);
 }
 .legenda i.urgente { background: var(--urgente-fondo); border-color: var(--urgente-bordo); }
+.legenda i.concluso { background: var(--fatto-fondo); border-color: var(--fatto-bordo); }
+
+/* Selettore Giorno / Settimana per l'amministratore. */
+.scelta-vista {
+  display: flex;
+  gap: 0.25rem;
+  padding: 0.2rem;
+  border: 1px solid var(--linea);
+  border-radius: 10px;
+  background: var(--superficie);
+}
+.scelta-vista button {
+  min-height: 32px;
+  padding: 0 0.9rem;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  font: inherit;
+  font-weight: 500;
+  color: var(--testo-secondario);
+  cursor: pointer;
+}
+.scelta-vista button[aria-pressed="true"] { background: var(--blu); color: #fff; }
+
+/* Filtri per installatore nella vista Settimana. */
+.filtri { display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; }
+.filtri .etichetta-filtro {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--testo-secondario);
+}
+.filtro {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: 32px;
+  padding: 0 0.75rem;
+  border: 1px solid var(--linea);
+  border-radius: 999px;
+  background: var(--superficie);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+.filtro[aria-pressed="true"] { border-color: var(--blu); background: #ecedf8; font-weight: 600; }
+.filtro strong { font-size: 12px; }
+
+/* Striscia dei lavori ancora da assegnare, sopra l'agenda. */
+.da-assegnare-striscia {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  max-width: calc(var(--agenda-massima) + 2.5rem);
+  margin: 0 auto;
+  padding: 0 1.25rem 0.7rem;
+  flex-wrap: wrap;
+}
+.da-assegnare-striscia .titolo {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--testo-secondario);
+}
+.gettone {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: 34px;
+  padding: 0 0.7rem;
+  border: 1px dashed var(--bordo-campo);
+  border-radius: 8px;
+  background: var(--superficie);
+  font: inherit;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+.gettone:hover { background: var(--fondo); }
+.gettone .ora-piccola { font-weight: 700; }
 
 /* ------------------------------------------------------------------ */
 /* Agenda settimanale                                                  */
@@ -364,10 +449,34 @@ h1, h2, h3 { margin: 0; font-weight: 600; letter-spacing: -0.01em; }
   overflow: hidden;
 }
 
+/* Il numero di colonne cambia: sei giorni nella vista Settimana, una per
+   installatore nella vista Giorno. Lo imposta app.js su .agenda. */
+.agenda { --colonne: 6; }
+
 .agenda .intestazione,
 .agenda .corpo {
   display: grid;
-  grid-template-columns: var(--ore) repeat(6, minmax(0, 1fr));
+  grid-template-columns: var(--ore) repeat(var(--colonne), minmax(0, 1fr));
+}
+
+.agenda .intestazione .persona {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  padding: 0.5rem;
+  text-align: left;
+}
+.agenda .intestazione .persona .nome { font-size: 14px; font-weight: 600; }
+.agenda .intestazione .persona .quanti { font-size: 11.5px; color: var(--testo-secondario); }
+
+.pallino { width: 10px; height: 10px; border-radius: 50%; flex: none; display: inline-block; }
+
+.senza-notifiche {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--pericolo);
 }
 
 .agenda .intestazione {
@@ -490,6 +599,65 @@ h1, h2, h3 { margin: 0; font-weight: 600; letter-spacing: -0.01em; }
 .blocco.urgente .seconda { color: var(--urgente-testo); }
 .blocco.scelto { outline: 2px solid var(--blu); outline-offset: 1px; }
 
+/* Eseguito: resta in agenda ma si spegne, e il nome è barrato. */
+.blocco.fatto {
+  background: var(--fatto-fondo);
+  border-color: var(--fatto-bordo);
+  color: var(--testo-secondario);
+}
+.blocco.fatto .quando-chi { text-decoration: line-through; text-decoration-thickness: 1px; }
+.blocco .segno-fatto {
+  flex: none;
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--fatto);
+}
+
+/* Ancora da assegnare: contorno tratteggiato, come la striscia in alto. */
+.blocco.da-assegnare {
+  border-style: dashed;
+  border-color: var(--bordo-campo);
+  background: var(--superficie);
+}
+
+/* Iniziale di chi esegue, nella vista Settimana dove le colonne sono divise. */
+.blocco .iniziale {
+  flex: none;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9px;
+  font-weight: 700;
+  color: #fff;
+}
+
+/* Metà di colonna: un installatore per metà, nella vista Settimana con
+   il filtro su "Tutti". Con un filtro attivo la metà si prende tutto. */
+.meta { position: absolute; inset: 0; }
+.blocco.compattissimo .prima { font-size: 11px; }
+.blocco.compattissimo .seconda { display: none; }
+
+/* Vista Giorno: le colonne sono due o tre, quindi i blocchi sono larghi
+   centinaia di pixel. Quando le fasce si stringono e la seconda riga non ci
+   sta più, invece di buttare via l'indirizzo lo si mette in fila al nome:
+   nello spazio in larghezza ci sta comodo. */
+.agenda.per-persona.compatta .blocco {
+  flex-direction: row;
+  align-items: baseline;
+  gap: 0.45rem;
+}
+.agenda.per-persona.compatta .blocco .prima { flex: none; max-width: 60%; }
+.agenda.per-persona.compatta .blocco .seconda {
+  display: block;
+  flex: 1;
+  min-width: 0;
+}
+
 /* ------------------------------------------------------------------ */
 /* Pannello laterale e dialogo                                         */
 /* ------------------------------------------------------------------ */
@@ -565,7 +733,8 @@ dialog.pannello .piede.sparso .pulsante { flex: 0 1 auto; }
 }
 .riquadro-rimanda .pulsante { width: 100%; }
 
-.etichetta-urgente {
+.etichetta-urgente,
+.etichetta-fatto {
   display: inline-block;
   padding: 0.15rem 0.55rem;
   border-radius: 999px;
@@ -576,6 +745,24 @@ dialog.pannello .piede.sparso .pulsante { flex: 0 1 auto; }
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
+.etichetta-fatto { background: var(--fatto); }
+
+.scelta-persona {
+  min-height: 36px;
+  padding: 0.2rem 0.5rem;
+  border: 1px solid var(--bordo-campo);
+  border-radius: 8px;
+  background: var(--superficie);
+  font: inherit;
+  max-width: 100%;
+}
+
+.pulsante.conferma {
+  background: var(--fatto);
+  border-color: var(--fatto);
+  color: #fff;
+}
+.pulsante.conferma:hover { filter: brightness(0.93); }
 
 dialog.conferma {
   width: min(28rem, calc(100vw - 2rem));
@@ -626,6 +813,7 @@ dialog.conferma .bottoni .pulsante { flex: 1; }
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 0.4rem;
+  --colonne-schede: 2;
   margin: 1rem 1.15rem;
   padding: 0.25rem;
   border-radius: 12px;
@@ -643,6 +831,69 @@ dialog.conferma .bottoni .pulsante { flex: 1; }
   color: var(--testo-secondario);
 }
 .schede a[aria-current="page"] { background: var(--blu); color: #fff; }
+.schede.tre { grid-template-columns: 1fr 1fr 1fr; }
+
+/* Pulsante con cui l'installatore si carica un intervento da solo. */
+.nuovo-mio {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  width: calc(100% - 2.3rem);
+  margin: 0 1.15rem 1rem;
+  min-height: 48px;
+  border: 0;
+  border-radius: 14px;
+  background: var(--blu);
+  color: #fff;
+  font: inherit;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.nuovo-mio:hover { background: var(--blu-scuro); }
+.nuovo-mio svg { width: 20px; height: 20px; }
+
+/* Interventi già conclusi: raccolti in fondo, spenti. */
+.conclusi-titolo {
+  margin: 1.25rem 1.15rem 0.5rem;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--testo-secondario);
+}
+.voce.conclusa a { background: var(--fatto-fondo); border-color: var(--fatto-bordo); }
+.voce.conclusa .chi { color: var(--testo-secondario); text-decoration: line-through; }
+.voce.conclusa .quando { color: var(--testo-secondario); }
+.segno-concluso {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin-top: 0.45rem;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--fatto);
+}
+.segno-concluso svg { width: 13px; height: 13px; }
+
+/* Di chi è l'intervento, nella vista "Tutti" e sul dettaglio altrui. */
+.di-chi {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 0.45rem;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  background: #eef0f7;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--testo-secondario);
+}
+
+.giorno-gruppo h2 .pallino { width: 9px; height: 9px; }
 
 .navigazione-giorno {
   display: flex;
@@ -769,6 +1020,56 @@ dialog.conferma .bottoni .pulsante { flex: 1; }
 }
 .riga-notifiche .testo { flex: 1; }
 .riga-notifiche .stato { display: block; font-size: 13px; color: var(--testo-secondario); }
+
+/* Le push possono smettere in silenzio: quando non sono attive, la riga deve
+   farsi notare, non restare una scritta grigia in fondo alla pagina. */
+.riga-notifiche.da-sistemare {
+  border-color: var(--urgente-bordo);
+  border-left-width: 4px;
+  background: var(--urgente-fondo);
+  color: var(--urgente-testo);
+}
+.riga-notifiche.da-sistemare .stato { color: var(--urgente-testo); }
+
+/* Azioni del dettaglio sul telefono. */
+.fatto-grande {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  width: 100%;
+  min-height: 58px;
+  border: 0;
+  border-radius: 14px;
+  background: var(--fatto);
+  color: #fff;
+  font: inherit;
+  font-size: 18px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.fatto-grande:hover { filter: brightness(0.93); }
+.fatto-grande svg { width: 22px; height: 22px; }
+
+.riga-azioni { display: grid; grid-template-columns: 1fr 1fr; gap: 0.65rem; }
+.riga-azioni .pulsante, .riga-azioni .scelta-persona { min-height: 50px; width: 100%; }
+
+.mappa {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 50px;
+  border: 1px solid var(--linea);
+  border-radius: 14px;
+  background: var(--superficie);
+  font-weight: 500;
+  text-decoration: none;
+}
+.mappa:hover { background: var(--fondo); }
+.mappa svg { width: 18px; height: 18px; }
+
+.separa { height: 1px; background: var(--linea); margin: 0.35rem 0; }
 
 /* ------------------------------------------------------------------ */
 /* Agenda su schermi stretti                                           */

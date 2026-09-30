@@ -26,9 +26,17 @@ CREATE TABLE IF NOT EXISTS utenti (
   creato_il              TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- Per i database creati prima che questa colonna esistesse.
+-- Per i database creati prima che queste colonne esistessero.
 ALTER TABLE utenti
   ADD COLUMN IF NOT EXISTS deve_cambiare_password BOOLEAN NOT NULL DEFAULT false;
+
+-- `posizione` decide l'ordine delle colonne nell'agenda e il colore assegnato
+-- a ciascun installatore. Più basso = più a sinistra. Si cambia con una
+-- riga di SQL, per esempio:
+--   UPDATE utenti SET posizione = 1 WHERE email = 'michele@…';
+--   UPDATE utenti SET posizione = 2 WHERE email = 'alessandro@…';
+ALTER TABLE utenti
+  ADD COLUMN IF NOT EXISTS posizione SMALLINT NOT NULL DEFAULT 0;
 
 -- Il confronto delle email è sempre in minuscolo.
 CREATE UNIQUE INDEX IF NOT EXISTS utenti_email_minuscola
@@ -58,8 +66,13 @@ CREATE INDEX IF NOT EXISTS sessioni_scadenza ON sessioni (scade_il);
 --
 -- Il prezzo è in centesimi (intero): niente errori di arrotondamento.
 --
--- Gli annullati restano in tabella con stato = 'annullato' (cancellazione
--- logica). Tutte le query di lettura per le viste filtrano stato = 'attivo'.
+-- Tre stati:
+--   attivo     da fare
+--   fatto      eseguito (resta in agenda, barrato) con l'ora in `fatto_il`
+--   annullato  sparito da tutte le viste, ma conservato per storico
+--
+-- `assegnato_a` vuoto significa "da assegnare": è il mucchio dei lavori presi
+-- al telefono prima di decidere chi ci va.
 
 CREATE TABLE IF NOT EXISTS appuntamenti (
   id               SERIAL PRIMARY KEY,
@@ -71,8 +84,9 @@ CREATE TABLE IF NOT EXISTS appuntamenti (
   ora              TIME        NOT NULL,
   note             TEXT        NOT NULL DEFAULT '',
   urgente          BOOLEAN     NOT NULL DEFAULT false,
-  stato            TEXT        NOT NULL DEFAULT 'attivo'
-                               CHECK (stato IN ('attivo', 'annullato')),
+  stato            TEXT        NOT NULL DEFAULT 'attivo',
+  assegnato_a      INTEGER     REFERENCES utenti(id) ON DELETE SET NULL,
+  fatto_il         TIMESTAMPTZ,
   creato_da        INTEGER     REFERENCES utenti(id) ON DELETE SET NULL,
   creato_il        TIMESTAMPTZ NOT NULL DEFAULT now(),
   aggiornato_il    TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -85,19 +99,49 @@ CREATE TABLE IF NOT EXISTS appuntamenti (
            AND EXTRACT(SECOND FROM ora) = 0)
 );
 
--- Un solo appuntamento ATTIVO per fascia. È un indice unico parziale: gli
--- annullati sono esclusi, quindi una fascia liberata torna disponibile.
--- Questo rende impossibile la doppia prenotazione anche se due richieste
--- arrivano nello stesso istante: il secondo INSERT viene rifiutato dal
--- database e l'API risponde 409 "Fascia già occupata".
-CREATE UNIQUE INDEX IF NOT EXISTS appuntamenti_una_per_fascia
-  ON appuntamenti (data, ora)
-  WHERE stato = 'attivo';
+-- Colonne aggiunte dopo la prima versione: si applicano anche a un database
+-- già popolato.
+ALTER TABLE appuntamenti
+  ADD COLUMN IF NOT EXISTS assegnato_a INTEGER REFERENCES utenti(id) ON DELETE SET NULL;
+ALTER TABLE appuntamenti
+  ADD COLUMN IF NOT EXISTS fatto_il TIMESTAMPTZ;
 
--- Indice per le letture per intervallo (vista giorno e vista settimana).
-CREATE INDEX IF NOT EXISTS appuntamenti_per_data
+-- Il vincolo sullo stato va rifatto: la prima versione ammetteva solo due
+-- valori e rifiuterebbe 'fatto'.
+ALTER TABLE appuntamenti DROP CONSTRAINT IF EXISTS appuntamenti_stato_check;
+ALTER TABLE appuntamenti ADD CONSTRAINT appuntamenti_stato_check
+  CHECK (stato IN ('attivo', 'fatto', 'annullato'));
+
+-- `fatto_il` esiste se e solo se lo stato è 'fatto': impedisce che una riga
+-- dica una cosa e la data ne dica un'altra.
+ALTER TABLE appuntamenti DROP CONSTRAINT IF EXISTS appuntamenti_fatto_coerente;
+ALTER TABLE appuntamenti ADD CONSTRAINT appuntamenti_fatto_coerente
+  CHECK ((stato = 'fatto') = (fatto_il IS NOT NULL));
+
+-- Un solo appuntamento per fascia PER INSTALLATORE. Con due tecnici, alle
+-- 15:00 di giovedì possono lavorare tutti e due: quello che non si può fare è
+-- mandare la stessa persona in due posti nello stesso momento.
+--
+-- Sono esclusi gli annullati (la fascia torna libera) e quelli ancora da
+-- assegnare, che per definizione non occupano l'agenda di nessuno.
+--
+-- Il vincolo sta nel database e non solo nel codice: due richieste inviate
+-- nello stesso istante non possono sovrapporsi, la seconda viene rifiutata e
+-- l'API risponde 409 "Fascia già occupata".
+DROP INDEX IF EXISTS appuntamenti_una_per_fascia;
+CREATE UNIQUE INDEX IF NOT EXISTS appuntamenti_una_per_fascia_per_persona
+  ON appuntamenti (data, ora, assegnato_a)
+  WHERE stato <> 'annullato' AND assegnato_a IS NOT NULL;
+
+-- Indici per le letture per intervallo (viste giorno e settimana).
+DROP INDEX IF EXISTS appuntamenti_per_data;
+CREATE INDEX IF NOT EXISTS appuntamenti_per_data_non_annullati
   ON appuntamenti (data, ora)
-  WHERE stato = 'attivo';
+  WHERE stato <> 'annullato';
+
+CREATE INDEX IF NOT EXISTS appuntamenti_per_assegnatario
+  ON appuntamenti (assegnato_a, data)
+  WHERE stato <> 'annullato';
 
 -- ---------------------------------------------------------------------------
 -- Iscrizioni alle notifiche push
@@ -129,3 +173,20 @@ CREATE TABLE IF NOT EXISTS tentativi_accesso (
 
 CREATE INDEX IF NOT EXISTS tentativi_accesso_chiave_quando
   ON tentativi_accesso (chiave, quando);
+
+-- ---------------------------------------------------------------------------
+-- Promemoria già inviati
+-- ---------------------------------------------------------------------------
+-- La funzione dei promemoria gira ogni mezz'ora e decide da sé se è il momento
+-- di mandare qualcosa. Questa tabella è il suo appunto di cosa ha già fatto:
+-- senza, due giri ravvicinati manderebbero lo stesso riepilogo due volte.
+--
+-- La chiave è del tipo  'sera:2026-10-01:utente-3'.
+
+CREATE TABLE IF NOT EXISTS promemoria_inviati (
+  chiave TEXT        PRIMARY KEY,
+  quando TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS promemoria_inviati_quando
+  ON promemoria_inviati (quando);

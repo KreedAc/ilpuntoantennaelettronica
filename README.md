@@ -140,11 +140,56 @@ dopo averli cancellati.
 | Schema | `db/schema.sql` | tabelle Postgres |
 | Strumenti | `scripts/db.mjs`, `scripts/chiavi-push.mjs` | schema, utenti, dati di prova, chiavi VAPID |
 
-I due ruoli sono **admin** (Tiziana: crea, modifica, rimanda, annulla) e
-**installatore** (sola lettura, viste Giorno e Settimana, numero cliccabile).
-I permessi si controllano **nell'API su ogni endpoint**: un installatore che
-chiamasse a mano un indirizzo di scrittura riceve `403`, non basta nascondere
-i pulsanti.
+### Ruoli e permessi
+
+| | Tiziana (admin) | Installatore |
+|---|---|---|
+| Vedere | tutto | **tutto**, anche gli interventi dei colleghi |
+| Creare | per chiunque, o lasciare "da assegnare" | **solo per sé** |
+| Modificare la scheda | qualunque | — |
+| Rimandare, annullare, segnare fatto | qualunque | **solo i propri** |
+| Assegnare e riassegnare | qualunque | **solo i propri** (passaggio di consegne) |
+
+Il controllo è **nell'API su ogni endpoint** (`puoToccare`): un installatore
+che chiamasse a mano un indirizzo su un intervento non suo riceve `403`. Non
+basta nascondere i pulsanti.
+
+Gli installatori **si vedono fra loro**: serve a coordinarsi, a sostituirsi e a
+non uscire in due allo stesso indirizzo. È una scelta, ed è scritta
+nell'informativa privacy al punto 5.
+
+### Le viste
+
+- **Tiziana, Giorno** — una colonna per installatore, con la striscia
+  "Da assegnare" in cima. È lo schermo dell'assegnazione: squilla il telefono,
+  si guarda chi è libero.
+- **Tiziana, Settimana** — sei giorni, con i filtri *Tutti / ciascun
+  installatore / Da assegnare*. Con "Tutti" ogni giorno si divide fra i
+  tecnici e i blocchi portano l'iniziale; con un filtro attivo le colonne
+  tornano larghe.
+- **Installatore** — Giorno (i suoi), Settimana (i suoi), **Tutti** (la
+  giornata di entrambi). I lavori già fatti si raccolgono in fondo.
+
+### Stato "fatto"
+
+Un appuntamento è `attivo`, `fatto` o `annullato`. È **l'installatore a
+chiuderlo dal telefono**, con un pulsante grande nel dettaglio; l'ora finisce
+in `fatto_il`. I fatti restano in agenda, barrati: servono allo storico e a non
+far arrivare promemoria per lavori già chiusi. Gli annullati spariscono da
+tutte le viste ma restano in tabella.
+
+### Colonne e colori
+
+L'ordine delle colonne e il colore di ciascun installatore vengono da
+`utenti.posizione` (più basso = più a sinistra). Si cambia con una riga:
+
+```sql
+UPDATE utenti SET posizione = 1 WHERE email = 'michele@…';
+UPDATE utenti SET posizione = 2 WHERE email = 'alessandro@…';
+```
+
+Il colore non è mai l'unica informazione: nella vista Settimana ogni blocco
+porta anche l'iniziale, e "Urgente" e "Fatto" sono scritti a parole.
 
 ### Prima configurazione
 
@@ -168,6 +213,28 @@ i pulsanti.
    ```
    Incolla `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` e `VAPID_SUBJECT` fra le
    variabili d'ambiente di Netlify. **La chiave privata non va nel repository.**
+
+### Promemoria automatici
+
+`netlify/functions/promemoria.mjs` non risponde a nessuna richiesta: la fa
+partire Netlify **ogni mezz'ora** (`config.schedule`). È la funzione stessa a
+decidere se è il momento di parlare, guardando l'**ora italiana**:
+
+- verso le **19** — a ciascun installatore il riepilogo di domani, a Tiziana il
+  quadro d'insieme più quanti lavori restano da assegnare
+- verso le **7** — la giornata che comincia
+
+Perché ogni mezz'ora e non due volte al giorno: il cron di Netlify ragiona in
+UTC, e un orario fisso si sposterebbe di un'ora a ogni cambio di ora legale.
+Costa circa **2 crediti Netlify al mese**, cioè due centesimi.
+
+Perché non `pg_cron` dentro il database: Neon spegne il database dopo 5 minuti
+di inattività, e un cron interno a un database spento non parte. La sveglia
+deve stare fuori.
+
+La tabella `promemoria_inviati` impedisce i doppioni: è l'`INSERT … ON CONFLICT
+DO NOTHING` stesso a fare da guardia, quindi nemmeno due esecuzioni simultanee
+possono mandare due volte lo stesso riepilogo.
 
 ### Notifiche sul telefono dell'installatore
 
