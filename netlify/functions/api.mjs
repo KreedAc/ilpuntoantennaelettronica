@@ -208,9 +208,9 @@ function puoToccare(utente, appuntamento) {
 
 async function elencoUtenti() {
   return await sql()`
-    SELECT id, nome, ruolo, posizione
+    SELECT id, nome, ruolo, posizione, nascosto
     FROM utenti
-    ORDER BY posizione, id
+    ORDER BY nascosto, posizione, id
   `;
 }
 
@@ -219,11 +219,21 @@ async function idsAmministratori() {
   return righe.map((r) => r.id);
 }
 
-/** L'id esiste ed è di un installatore? Serve prima di assegnare. */
-async function installatoreValido(id) {
+/**
+ * L'id esiste ed è di un installatore a cui si può affidare un lavoro?
+ *
+ * Gli account nascosti — quello di prova — li usa solo Tiziana: un
+ * installatore non deve poter passare un intervento a un account che nel suo
+ * pannello non compare nemmeno. Prendersi un lavoro per sé resta sempre
+ * possibile, anche per l'account nascosto, e quel caso lo decide chi chiama.
+ */
+async function installatoreValido(id, { ancheNascosti = false } = {}) {
   if (!Number.isInteger(id)) return false;
   const righe = await sql()`
-    SELECT 1 FROM utenti WHERE id = ${id} AND ruolo = 'installatore' LIMIT 1
+    SELECT 1 FROM utenti
+    WHERE id = ${id} AND ruolo = 'installatore'
+      AND (NOT nascosto OR ${ancheNascosti}::boolean)
+    LIMIT 1
   `;
   return righe.length > 0;
 }
@@ -446,7 +456,9 @@ async function assegnatarioRichiesto(corpo, utente) {
   if (grezzo === null || grezzo === undefined || grezzo === '') return { id: null };
 
   const id = Number(grezzo);
-  if (!(await installatoreValido(id))) {
+  // Qui siamo già sicuri che a chiedere sia Tiziana: gli altri sono usciti
+  // alla riga sopra, quindi l'account di prova è una scelta legittima.
+  if (!(await installatoreValido(id, { ancheNascosti: true }))) {
     return { errore: 'Installatore non valido' };
   }
   return { id };
@@ -598,7 +610,8 @@ async function patchAssegna(req, id, utente) {
   const seLoPrende = esistente.assegnato_a === null && nuovo === utente.id;
   if (!puoToccare(utente, esistente) && !seLoPrende) return errore(NON_TUO, 403);
 
-  if (!nessuno && !(await installatoreValido(nuovo))) {
+  const ancheNascosti = utente.ruolo === 'admin' || nuovo === utente.id;
+  if (!nessuno && !(await installatoreValido(nuovo, { ancheNascosti }))) {
     return errore('Installatore non valido', 400);
   }
   if (nuovo === esistente.assegnato_a) {
@@ -822,6 +835,7 @@ export default async (req) => {
           nome: u.nome,
           ruolo: u.ruolo,
           posizione: u.posizione,
+          nascosto: u.nascosto,
           notificheAttive: conNotifiche.has(u.id),
         })),
         daAssegnare: liberi,

@@ -287,6 +287,23 @@ cassetto o dal mucchio dei lavori liberi — chi lo riceve legge «Intervento
 assegnato a te» e chi lo lascia «Intervento passato a *nome*». I titoli stanno
 in `netlify/lib/avvisi.mjs`, fuori dall'API, perché si possano provare da soli.
 
+### L'account di prova
+
+Un utente con `nascosto = true` serve a provare notifiche e schermate senza
+rubare il posto a nessuno:
+
+- **non** diventa una colonna fissa nell'agenda di Tiziana;
+- **non** compare fra i colleghi a cui gli installatori possono passare un
+  lavoro, né nella loro scheda «Tutti»;
+- Tiziana lo trova lo stesso nel menu **«Assegnato a»**, sia nella scheda sia
+  nel cassetto;
+- la sua colonna **compare solo nei giorni in cui ha davvero qualcosa**, così
+  un intervento affidato per prova non sparisce dalla vista.
+
+La regola vale anche lato server: `installatoreValido()` accetta un account
+nascosto solo se a chiedere è Tiziana, o se è l'account stesso a prendersi un
+lavoro libero. Si crea con una riga di SQL, come gli altri.
+
 ### Regole di funzionamento
 
 - Fasce da **30 minuti**, dalle **08:00 alle 19:30** (ultima che finisce alle 20:00).

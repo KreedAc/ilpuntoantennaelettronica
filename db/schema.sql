@@ -38,6 +38,13 @@ ALTER TABLE utenti
 ALTER TABLE utenti
   ADD COLUMN IF NOT EXISTS posizione SMALLINT NOT NULL DEFAULT 0;
 
+-- `nascosto` serve all'account di prova: Tiziana può affidargli un lavoro dal
+-- menu a tendina, ma non diventa una colonna fissa nell'agenda né un collega a
+-- cui gli installatori possono passare un intervento. La colonna compare solo
+-- nei giorni in cui ha davvero qualcosa, così niente sparisce dalla vista.
+ALTER TABLE utenti
+  ADD COLUMN IF NOT EXISTS nascosto BOOLEAN NOT NULL DEFAULT false;
+
 -- Il confronto delle email è sempre in minuscolo.
 CREATE UNIQUE INDEX IF NOT EXISTS utenti_email_minuscola
   ON utenti (lower(email));

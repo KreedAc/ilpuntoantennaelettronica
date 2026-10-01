@@ -155,10 +155,34 @@ const radice = document.getElementById('app');
 /** I colori delle colonne, in ordine di `posizione`. */
 const COLORI = ['#2e3192', '#0f7b6c', '#a3560c', '#7a2d6b', '#1d6fa5'];
 
-const installatori = () => stato.utenti.filter((u) => u.ruolo === 'installatore');
+/**
+ * Gli installatori che si vedono in giro per il pannello.
+ *
+ * Un account nascosto — quello di prova — resta fuori: non deve diventare una
+ * colonna fissa nell'agenda di Tiziana né un collega a cui passare un lavoro.
+ * Chi però ci è dentro vede sé stesso, altrimenti nella scheda "Tutti" non si
+ * troverebbe.
+ */
+const installatori = () => stato.utenti.filter(
+  (u) => u.ruolo === 'installatore' && (!u.nascosto || u.id === stato.utente?.id));
+
+/** Tutti quelli a cui Tiziana può affidare un lavoro, nascosti compresi. */
+const assegnabili = () => stato.utenti.filter((u) => u.ruolo === 'installatore');
+
+/**
+ * Le colonne dell'agenda di Tiziana.
+ *
+ * Un nascosto compare solo nei giorni — o nelle settimane — in cui ha davvero
+ * qualcosa: così l'agenda di tutti i giorni resta quella di sempre, ma un
+ * intervento affidato per prova non sparisce dalla vista.
+ */
+const colonnePersone = (elenco) => assegnabili().filter(
+  (u) => !u.nascosto || elenco.some((a) => a.assegnatoA === u.id));
 
 function coloreDi(id) {
-  const indice = installatori().findIndex((u) => u.id === id);
+  // L'indice si prende sull'elenco completo: il colore di Michele e di
+  // Alessandro non cambia a seconda di chi ha una colonna quel giorno.
+  const indice = assegnabili().findIndex((u) => u.id === id);
   return indice < 0 ? 'var(--bordo-campo)' : COLORI[indice % COLORI.length];
 }
 
@@ -488,8 +512,8 @@ function strisciaDaAssegnare(elenco, giorno) {
 function vistaGiornoAdmin(giorno) {
   const fasce = stato.config.fasce;
   const altezzaTotale = `calc(var(--riga) * ${fasce.length})`;
-  const persone = installatori();
   const delGiorno = diQuelGiorno(stato.appuntamenti, giorno);
+  const persone = colonnePersone(delGiorno);
 
   const strumenti = el('div', { class: 'strumenti' },
     sceltaVista('giorno', { giorno, settimana: lunedi(giorno) }),
@@ -576,7 +600,7 @@ function vistaGiornoAdmin(giorno) {
 function vistaSettimanaAdmin(inizioSettimana, chi) {
   const fasce = stato.config.fasce;
   const altezzaTotale = `calc(var(--riga) * ${fasce.length})`;
-  const persone = installatori();
+  const persone = colonnePersone(stato.appuntamenti);
   const adesso = oggi();
 
   // `chi` vale 'tutti', 'nessuno' (i da assegnare) o l'id di un installatore.
@@ -762,7 +786,7 @@ function campiScheda(valori = {}) {
       ? campo('assegnatoA', 'Assegnato a',
           el('select', { name: 'assegnatoA' },
             el('option', { value: '', selected: !valori.assegnatoA, testo: 'Da assegnare' }),
-            installatori().map((u) => el('option', {
+            assegnabili().map((u) => el('option', {
               value: String(u.id),
               selected: valori.assegnatoA === u.id,
               testo: u.nome,
@@ -984,7 +1008,10 @@ function assegnazione(appuntamento, posso, avviso, modificato = { valore: false 
   }
   const scelta = el('select', { class: 'scelta-persona' },
     el('option', { value: '', selected: !appuntamento.assegnatoA, testo: 'Da assegnare' }),
-    installatori().map((u) => el('option', {
+    // L'elenco completo solo per Tiziana: è da questo menu che affida un
+    // lavoro all'account di prova. Un installatore, che da qui può passare il
+    // proprio lavoro a un collega, continua a vedere soltanto i colleghi veri.
+    (eAdmin() ? assegnabili() : installatori()).map((u) => el('option', {
       value: String(u.id),
       selected: appuntamento.assegnatoA === u.id,
       testo: u.id === stato.utente.id ? `${u.nome} (io)` : u.nome,
