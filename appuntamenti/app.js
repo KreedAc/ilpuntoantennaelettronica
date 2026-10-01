@@ -346,7 +346,8 @@ async function caricaUtenti() {
     const { utenti } = await api('/utenti');
     stato.utenti = utenti;
   } catch {
-    stato.utenti = [];
+    // Si tiene l'elenco precedente: meglio nomi e colori di un minuto fa che
+    // un'agenda senza colonne perché una richiesta è andata storta.
   }
 }
 
@@ -1479,7 +1480,12 @@ function rigaNotifiche() {
       const esistente = await registrazione.pushManager.getSubscription();
 
       if (esistente) {
-        await api('/push/iscrizione', { metodo: 'DELETE', corpo: { endpoint: esistente.endpoint } });
+        // Prima si avvisa il server, poi si disiscrive il dispositivo: se la
+        // chiamata fallisce, l'eccezione ferma tutto e l'iscrizione resta
+        // valida da entrambe le parti. Al contrario resterebbe una riga
+        // fantasma nel database, e Tiziana continuerebbe a vedere le
+        // notifiche come attive.
+        await api('/push/disiscrizione', { metodo: 'POST', corpo: { endpoint: esistente.endpoint } });
         await esistente.unsubscribe();
       } else {
         if (await Notification.requestPermission() !== 'granted') {
@@ -1620,10 +1626,17 @@ async function disegna() {
   else mostraCaricamento(true);
 
   try {
-    if (stato.utenti.length === 0) await caricaUtenti();
+    // L'elenco degli utenti si richiede a OGNI disegno, non solo la prima
+    // volta: contiene anche se ciascun installatore ha le notifiche attive,
+    // e tenendolo in cache quell'informazione restava vecchia finché Tiziana
+    // non ricaricava la pagina. Parte in parallelo con gli appuntamenti,
+    // quindi non aggiunge attesa: sono tre righe di tabella.
+    const utentiPronti = caricaUtenti();
 
     if (r.vista === 'dettaglio') {
-      const { appuntamento } = await api(`/appuntamenti/${Number(r.id)}`);
+      const [{ appuntamento }] = await Promise.all([
+        api(`/appuntamenti/${Number(r.id)}`), utentiPronti,
+      ]);
       if (mio !== stato.disegnoCorrente) return;
       sostituisci(vistaDettaglio(appuntamento));
       return;
@@ -1631,7 +1644,10 @@ async function disegna() {
 
     if (r.vista === 'giorno' || r.vista === 'tutti') {
       const giorno = r.giorno ?? oggi();
-      stato.appuntamenti = await caricaIntervallo(giorno, giorno);
+      const [appuntamenti] = await Promise.all([
+        caricaIntervallo(giorno, giorno), utentiPronti,
+      ]);
+      stato.appuntamenti = appuntamenti;
       if (mio !== stato.disegnoCorrente) return;
       if (r.vista === 'tutti') sostituisci(vistaTutti(giorno));
       else sostituisci(eAdmin() ? vistaGiornoAdmin(giorno) : vistaGiornoInstallatore(giorno));
@@ -1639,7 +1655,10 @@ async function disegna() {
     }
 
     const inizio = lunedi(r.settimana ?? oggi());
-    stato.appuntamenti = await caricaIntervallo(inizio, piuGiorni(inizio, 5));
+    const [appuntamenti] = await Promise.all([
+      caricaIntervallo(inizio, piuGiorni(inizio, 5)), utentiPronti,
+    ]);
+    stato.appuntamenti = appuntamenti;
     if (mio !== stato.disegnoCorrente) return;
     sostituisci(r.vista === 'agenda'
       ? vistaSettimanaAdmin(inizio, r.chi ?? 'tutti')

@@ -656,16 +656,27 @@ async function postIscrizionePush(req, utente) {
   return risposta({ iscritto: true });
 }
 
-async function deleteIscrizionePush(req, utente) {
+/**
+ * Disiscrizione di un dispositivo.
+ *
+ * È una POST e non una DELETE di proposito: il corpo di una DELETE è una
+ * forma che qualche passaggio di rete scarta per strada, e qui il corpo
+ * contiene l'unica informazione che serve. Se manca, si risponde con un
+ * errore invece di dire "fatto" senza aver fatto niente: un fallimento
+ * silenzioso qui significa un installatore convinto di non ricevere più
+ * notifiche, e un database convinto del contrario.
+ */
+async function postDisiscrizionePush(req, utente) {
   const corpo = await leggiJson(req);
   const endpoint = String(corpo?.endpoint ?? '');
-  if (endpoint) {
-    await sql()`
-      DELETE FROM push_iscrizioni
-      WHERE endpoint = ${endpoint} AND utente_id = ${utente.id}
-    `;
-  }
-  return risposta({ iscritto: false });
+  if (!endpoint) return errore('Manca l\'indirizzo del dispositivo da disiscrivere', 400);
+
+  const righe = await sql()`
+    DELETE FROM push_iscrizioni
+    WHERE endpoint = ${endpoint} AND utente_id = ${utente.id}
+    RETURNING endpoint
+  `;
+  return risposta({ iscritto: false, cancellate: righe.length });
 }
 
 // ---------------------------------------------------------------------------
@@ -754,9 +765,11 @@ export default async (req) => {
     }
 
     // --- iscrizione alle notifiche: entrambi i ruoli ----------------------
-    if (percorso === '/push/iscrizione') {
-      if (metodo === 'POST') return await postIscrizionePush(req, utente);
-      if (metodo === 'DELETE') return await deleteIscrizionePush(req, utente);
+    if (percorso === '/push/iscrizione' && metodo === 'POST') {
+      return await postIscrizionePush(req, utente);
+    }
+    if (percorso === '/push/disiscrizione' && metodo === 'POST') {
+      return await postDisiscrizionePush(req, utente);
     }
 
     // --- scrittura --------------------------------------------------------
