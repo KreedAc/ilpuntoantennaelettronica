@@ -44,6 +44,8 @@ const ICONE = {
   chiave:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>',
   spunta:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>',
   passa:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 3l4 4-4 4"/><path d="M21 7H8a4 4 0 00-4 4v1"/><path d="M7 21l-4-4 4-4"/><path d="M3 17h13a4 4 0 004-4v-1"/></svg>',
+  vassoio:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 14h-6l-2 3h-2l-2-3H3"/><path d="M5 5h14l2 9v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4z"/></svg>',
+  mano:     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 11V6a2 2 0 00-4 0v5"/><path d="M14 10V4a2 2 0 00-4 0v7"/><path d="M10 10.5V6a2 2 0 00-4 0v8"/><path d="M18 8a2 2 0 114 0v6a8 8 0 01-8 8h-2a8 8 0 01-8-8v-1a2 2 0 114 0"/></svg>',
 };
 
 // ---------------------------------------------------------------------------
@@ -141,6 +143,7 @@ const stato = {
   config: null,
   utenti: [],
   appuntamenti: [],
+  daAssegnare: 0,
   disegnoCorrente: 0,
 };
 
@@ -343,8 +346,9 @@ async function esci() {
 
 async function caricaUtenti() {
   try {
-    const { utenti } = await api('/utenti');
+    const { utenti, daAssegnare } = await api('/utenti');
     stato.utenti = utenti;
+    stato.daAssegnare = daAssegnare ?? 0;
   } catch {
     // Si tiene l'elenco precedente: meglio nomi e colori di un minuto fa che
     // un'agenda senza colonne perché una richiesta è andata storta.
@@ -1106,10 +1110,112 @@ function schedeVista(attiva, { giorno, settimana }) {
       onclick: (e) => { e.preventDefault(); vai(parametri); },
     });
   };
-  return el('nav', { class: 'schede tre', 'aria-label': 'Cambia vista' },
+  // La quarta scheda è il mucchio dei lavori da prendere. È un'icona con una
+  // pastiglia invece di una parola perché il numero è l'informazione: in
+  // negozio Tiziana raccoglie le richieste, e sono i tecnici a concordare
+  // l'orario col cliente — quindi quel mucchio va guardato spesso.
+  const liberi = el('a', {
+    class: 'scheda-vassoio',
+    href: '?vista=daassegnare',
+    'aria-current': attiva === 'daassegnare' ? 'page' : null,
+    'aria-label': `Da assegnare: ${stato.daAssegnare} ${stato.daAssegnare === 1 ? 'intervento' : 'interventi'}`,
+    icona: 'vassoio',
+    onclick: (e) => { e.preventDefault(); vai({ vista: 'daassegnare' }); },
+  },
+    stato.daAssegnare > 0
+      ? el('span', { class: 'bolla', testo: String(stato.daAssegnare) })
+      : null,
+  );
+
+  return el('nav', { class: 'schede quattro', 'aria-label': 'Cambia vista' },
     link('Giorno', 'giorno', { vista: 'giorno', giorno }),
     link('Settimana', 'settimana', { vista: 'settimana', settimana }),
     link('Tutti', 'tutti', { vista: 'tutti', giorno }),
+    liberi,
+  );
+}
+
+/**
+ * Il mucchio dei lavori ancora di nessuno.
+ * Ogni riga ha "Prendo io" accanto: prendere un lavoro dev'essere un gesto
+ * solo, non un giro dentro la scheda.
+ */
+function vistaDaAssegnare() {
+  const liberi = stato.appuntamenti;
+
+  const prendi = (appuntamento) => {
+    const bottone = el('button', { class: 'pulsante prendi', type: 'button', icona: 'mano' }, 'Prendo io');
+    bottone.addEventListener('click', async (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      bottone.disabled = true;
+      bottone.textContent = 'Un attimo…';
+      try {
+        await api(`/appuntamenti/${appuntamento.id}/assegna`, {
+          metodo: 'PATCH', corpo: { assegnatoA: stato.utente.id },
+        });
+        await disegna();
+      } catch (errore) {
+        avvisoVolante(errore.message);
+        await disegna();
+      }
+    });
+    return bottone;
+  };
+
+  const perGiorno = new Map();
+  for (const a of liberi) {
+    if (!perGiorno.has(a.data)) perGiorno.set(a.data, []);
+    perGiorno.get(a.data).push(a);
+  }
+
+  const sezioni = [...perGiorno.entries()].map(([giorno, elenco]) =>
+    el('section', { class: 'giorno-gruppo' },
+      el('h2', {},
+        maiuscola(dataEstesa(giorno, { conAnno: false })),
+        giorno === oggi() ? el('span', { class: 'oggi-segno', testo: 'Oggi' }) : null,
+        // Un lavoro libero con la data già passata è il più urgente di tutti:
+        // nessuno l'ha preso e il giorno è andato.
+        giorno < oggi() ? el('span', { class: 'in-ritardo', testo: 'In ritardo' }) : null,
+      ),
+      el('ul', { class: 'elenco libero' }, elenco.map((a) => el('li', { class: `voce${a.urgente ? ' urgente' : ''}` },
+        el('span', { class: 'quando', testo: a.ora }),
+        el('div', { class: 'scheda-libera' },
+          el('a', {
+            href: `?vista=dettaglio&id=${a.id}`,
+            onclick: (e) => { e.preventDefault(); vai({ vista: 'dettaglio', id: String(a.id) }); },
+          },
+            el('span', { class: 'chi', testo: a.nomeCliente }),
+            el('span', { class: 'dove' },
+              el('span', { icona: 'posizione', 'aria-hidden': 'true' }),
+              el('span', { testo: a.luogoImpianto }),
+            ),
+            a.urgente ? el('span', { class: 'etichetta-urgente', testo: 'Urgente' }) : null,
+          ),
+          prendi(a),
+        ),
+      ))),
+    ));
+
+  return el('div', { class: 'app-installatore' },
+    testaInstallatore(),
+    schedeVista('daassegnare', { giorno: oggi(), settimana: lunedi(oggi()) }),
+    el('div', { class: 'navigazione-giorno' },
+      el('div', { class: 'testo' },
+        el('h1', { testo: 'Da assegnare' }),
+        el('div', {
+          class: 'sotto',
+          testo: liberi.length === 0
+            ? 'Nessun lavoro in attesa'
+            : liberi.length === 1
+              ? '1 intervento che aspetta qualcuno'
+              : `${liberi.length} interventi che aspettano qualcuno`,
+        }),
+      ),
+    ),
+    liberi.length === 0
+      ? el('p', { class: 'vuoto', testo: 'Niente da prendere. Quando Tiziana raccoglie una richiesta senza fissare chi ci va, la trovi qui.' })
+      : sezioni,
   );
 }
 
@@ -1274,6 +1380,8 @@ function vistaTutti(giorno) {
 function vistaDettaglio(appuntamento) {
   const mio = appuntamento.assegnatoA === stato.utente.id;
   const posso = eAdmin() || mio;
+  // Un lavoro di nessuno: l'installatore può prenderselo da qui.
+  const daPrendere = appuntamento.assegnatoA === null && !eAdmin() && !appuntamento.fatto;
 
   const riquadro = (titoletto, valore, grande = false) => el('div', { class: 'riquadro' },
     el('div', { class: 'titoletto', testo: titoletto }),
@@ -1309,6 +1417,14 @@ function vistaDettaglio(appuntamento) {
     () => api(`/appuntamenti/${appuntamento.id}/fatto`, { metodo: 'POST', corpo: { fatto: !appuntamento.fatto } }),
     segnaFatto, appuntamento.fatto ? 'Riapro…' : 'Segno…',
     appuntamento.fatto ? null : { vista: 'giorno', giorno: appuntamento.data },
+  ));
+
+  const prendiGrande = el('button', { class: 'fatto-grande prendi-grande', type: 'button', icona: 'mano' }, 'Prendo io');
+  prendiGrande.addEventListener('click', () => azione(
+    () => api(`/appuntamenti/${appuntamento.id}/assegna`, {
+      metodo: 'PATCH', corpo: { assegnatoA: stato.utente.id },
+    }),
+    prendiGrande, 'Un attimo…',
   ));
 
   const colleghi = installatori().filter((u) => u.id !== appuntamento.assegnatoA);
@@ -1366,6 +1482,11 @@ function vistaDettaglio(appuntamento) {
       el('h1', { class: 'nome-grande', testo: appuntamento.nomeCliente }),
 
       posso ? segnaFatto : null,
+      daPrendere ? prendiGrande : null,
+      daPrendere
+        ? el('p', { class: 'aiuto', style: 'margin:0' },
+            'Prendendolo diventa tuo, e puoi concordare l’orario definitivo col cliente.')
+        : null,
 
       riquadro('Data e ora', `${maiuscola(dataEstesa(appuntamento.data))} · ore ${appuntamento.ora}`, true),
       riquadro('Luogo impianto', appuntamento.luogoImpianto),
@@ -1399,7 +1520,9 @@ function vistaDettaglio(appuntamento) {
           vai({ vista: 'giorno', giorno: appuntamento.data }, { sostituisci: true });
         }),
       }) : null,
-      !posso ? el('p', { class: 'aiuto', testo: 'Questo intervento è di un collega: puoi consultarlo ma non modificarlo.' }) : null,
+      !posso && !daPrendere
+        ? el('p', { class: 'aiuto', testo: 'Questo intervento è di un collega: puoi consultarlo ma non modificarlo.' })
+        : null,
     ),
   );
 }
@@ -1619,6 +1742,12 @@ async function disegna() {
     vai({ vista: 'settimana', settimana: lunedi(r.settimana ?? oggi()) }, { sostituisci: true });
     return;
   }
+  // Il mucchio da assegnare è la scheda dei tecnici: Tiziana ce l'ha già
+  // davanti, come striscia in cima alla sua giornata.
+  if (r.vista === 'daassegnare' && eAdmin()) {
+    vai({ vista: 'giorno', giorno: oggi() }, { sostituisci: true });
+    return;
+  }
 
   // Solo al primissimo ingresso non c'è ancora niente da mostrare: da lì in
   // poi si tiene la vista precedente e si accende la barra.
@@ -1639,6 +1768,20 @@ async function disegna() {
       ]);
       if (mio !== stato.disegnoCorrente) return;
       sostituisci(vistaDettaglio(appuntamento));
+      return;
+    }
+
+    if (r.vista === 'daassegnare') {
+      // Il mucchio non è legato a un giorno. Si parte da una settimana fa, non
+      // da oggi: un lavoro che nessuno ha preso e la cui data è già passata è
+      // esattamente quello da non far sparire dalla vista.
+      const da = piuGiorni(oggi(), -7);
+      const [dati] = await Promise.all([
+        api(`/appuntamenti?dal=${da}&al=${piuGiorni(oggi(), 60)}&liberi=1`), utentiPronti,
+      ]);
+      stato.appuntamenti = dati.appuntamenti;
+      if (mio !== stato.disegnoCorrente) return;
+      sostituisci(vistaDaAssegnare());
       return;
     }
 

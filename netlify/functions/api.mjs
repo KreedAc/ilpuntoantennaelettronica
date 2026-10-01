@@ -397,10 +397,15 @@ async function getAppuntamenti(url) {
     return errore('Intervallo troppo ampio: al massimo 92 giorni', 400);
   }
 
+  // Con `liberi=1` tornano solo i lavori ancora da assegnare: è la vista del
+  // mucchio, che copre due mesi e scaricarla tutta sarebbe uno spreco.
+  const soloLiberi = url.searchParams.get('liberi') === '1';
+
   // Gli annullati non compaiono in nessuna vista; i fatti sì, barrati.
   const righe = await sql().query(
     `SELECT ${SELEZIONE} ${TABELLE}
      WHERE a.stato <> 'annullato' AND a.data BETWEEN $1 AND $2
+       ${soloLiberi ? "AND a.assegnato_a IS NULL AND a.stato = 'attivo'" : ''}
      ORDER BY a.data, a.ora, a.id`,
     [dal, al],
   );
@@ -543,36 +548,58 @@ async function patchRimanda(req, id, utente) {
   return risposta({ appuntamento: perIlBrowser(spostato) });
 }
 
-/** Passaggio di consegne, e assegnazione dal mucchio "da assegnare". */
+/**
+ * Assegnazione: Tiziana smista, gli installatori prendono dal mucchio e si
+ * passano i lavori fra loro.
+ *
+ * In negozio Tiziana raccoglie le richieste senza fissare l'orario definitivo;
+ * sono i tecnici a concordarlo poi col cliente. Perciò prendere un lavoro
+ * libero è la via normale, non un'eccezione: a un installatore basta che
+ * l'intervento non sia di nessuno e che se lo prenda per sé.
+ */
 async function patchAssegna(req, id, utente) {
   const esistente = await leggiAppuntamento(id);
   if (!esistente) return errore('Appuntamento non trovato', 404);
-  if (!puoToccare(utente, esistente)) return errore(NON_TUO, 403);
 
   const corpo = await leggiJson(req);
   const grezzo = corpo?.assegnatoA;
   const nessuno = grezzo === null || grezzo === undefined || grezzo === '';
+  const nuovo = nessuno ? null : Number(grezzo);
 
-  if (!nessuno && !(await installatoreValido(Number(grezzo)))) {
+  // Un installatore può prendersi un lavoro libero, ma non può affidarne uno
+  // a un collega senza prima averlo preso: quella resta una decisione di chi
+  // lo tiene in mano.
+  const seLoPrende = esistente.assegnato_a === null && nuovo === utente.id;
+  if (!puoToccare(utente, esistente) && !seLoPrende) return errore(NON_TUO, 403);
+
+  if (!nessuno && !(await installatoreValido(nuovo))) {
     return errore('Installatore non valido', 400);
   }
-  const nuovo = nessuno ? null : Number(grezzo);
   if (nuovo === esistente.assegnato_a) {
     return risposta({ appuntamento: perIlBrowser(esistente) });
   }
 
+  let cambiate;
   try {
+    // `IS NOT DISTINCT FROM` confronta anche i valori vuoti: l'aggiornamento
+    // avviene solo se nel frattempo l'assegnatario è ancora quello che
+    // avevamo letto. È una riga di SQL in più e copre il caso, raro ma
+    // possibile, di due tecnici che toccano lo stesso lavoro insieme: il
+    // secondo riceve una risposta chiara invece di credere di averlo preso.
     const righe = await sql().query(
       `UPDATE appuntamenti SET assegnato_a = $1, aggiornato_il = now()
        WHERE id = $2 AND stato <> 'annullato'
+         AND assegnato_a IS NOT DISTINCT FROM $3
        RETURNING id`,
-      [nuovo, id],
+      [nuovo, id, esistente.assegnato_a],
     );
-    if (righe.length === 0) return errore('Appuntamento non trovato', 404);
+    cambiate = righe.length;
   } catch (e) {
     if (fasciaOccupata(e)) {
       return errore(
-        'Chi hai scelto ha già un intervento in quella fascia',
+        nuovo === utente.id
+          ? 'Hai già un intervento in quella fascia'
+          : 'Chi hai scelto ha già un intervento in quella fascia',
         409,
         { campi: { assegnatoA: 'Fascia già occupata' } },
       );
@@ -580,11 +607,23 @@ async function patchAssegna(req, id, utente) {
     throw e;
   }
 
+  if (cambiate === 0) {
+    const adesso = await leggiAppuntamento(id);
+    if (!adesso) return errore('Appuntamento non trovato', 404);
+    return errore(
+      adesso.assegnato_nome
+        ? `L'ha appena preso ${adesso.assegnato_nome}`
+        : 'Qualcuno l\'ha appena spostato: riprova',
+      409,
+      { appuntamento: perIlBrowser(adesso) },
+    );
+  }
+
   const aggiornato = await leggiAppuntamento(id);
-  // Avvisiamo chi lo riceve, chi lo perde, e Tiziana se la mossa è partita da
-  // un installatore: deve sapere chi va dove.
+  // Avvisiamo chi lo riceve e chi lo perde. Tiziana no: le interessa che il
+  // lavoro sia coperto, non chi dei due se l'è preso.
   await notifica('Intervento assegnato a te', aggiornato, utente, {
-    anche: [...(await ancheGliAdmin(utente)), esistente.assegnato_a],
+    anche: [esistente.assegnato_a],
   });
   return risposta({ appuntamento: perIlBrowser(aggiornato) });
 }
@@ -742,6 +781,15 @@ export default async (req) => {
     if (percorso === '/utenti' && metodo === 'GET') {
       const utenti = await elencoUtenti();
       const conNotifiche = await conNotificheAttive(utenti.map((u) => u.id));
+      // Il conteggio dei lavori liberi viaggia qui, e non su un indirizzo
+      // suo, perché serve a disegnare la pastiglia sulla scheda in ogni
+      // schermata: l'interfaccia chiede già questo elenco a ogni disegno, e
+      // una richiesta in meno su rete mobile si sente.
+      const [{ liberi }] = await sql()`
+        SELECT count(*)::int AS liberi
+        FROM appuntamenti
+        WHERE stato = 'attivo' AND assegnato_a IS NULL
+      `;
       return risposta({
         utenti: utenti.map((u) => ({
           id: u.id,
@@ -750,6 +798,7 @@ export default async (req) => {
           posizione: u.posizione,
           notificheAttive: conNotifiche.has(u.id),
         })),
+        daAssegnare: liberi,
       });
     }
 

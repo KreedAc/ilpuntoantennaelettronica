@@ -860,6 +860,64 @@ dialog.conferma .bottoni .pulsante { flex: 1; }
 }
 .schede a[aria-current="page"] { background: var(--blu); color: #fff; }
 .schede.tre { grid-template-columns: 1fr 1fr 1fr; }
+/* Tre parole più l'icona del mucchio da assegnare, che sta stretta apposta:
+   è l'unica che porta un numero, e il numero è l'informazione. */
+.schede.quattro { grid-template-columns: 1fr 1fr 1fr 56px; }
+
+.scheda-vassoio {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  border-radius: 9px;
+  color: var(--testo-secondario);
+  text-decoration: none;
+}
+.scheda-vassoio svg { width: 21px; height: 21px; }
+.scheda-vassoio[aria-current="page"] { background: var(--blu); color: #fff; }
+
+.bolla {
+  position: absolute;
+  top: 2px;
+  right: 6px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--pericolo);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 18px;
+  text-align: center;
+}
+.scheda-vassoio[aria-current="page"] .bolla { background: #fff; color: var(--blu); }
+
+/* Mucchio da assegnare: ogni riga ha il suo "Prendo io" accanto, perché
+   prendere un lavoro dev'essere un gesto solo. */
+.scheda-libera { display: grid; gap: 0.5rem; }
+.scheda-libera > a {
+  display: block;
+  padding: 0.85rem 0.95rem;
+  border: 1px dashed var(--bordo-campo);
+  border-radius: 14px;
+  background: var(--superficie);
+  text-decoration: none;
+  min-height: 44px;
+}
+.voce.urgente .scheda-libera > a { background: var(--urgente-fondo); border-color: var(--urgente-bordo); }
+.pulsante.prendi {
+  width: 100%;
+  min-height: 46px;
+  border-color: var(--blu);
+  color: var(--blu);
+  font-weight: 600;
+}
+.pulsante.prendi:hover { background: #ecedf8; }
+.pulsante.prendi svg { width: 18px; height: 18px; }
+.prendi-grande { background: var(--blu); }
+.prendi-grande:hover { background: var(--blu-scuro); filter: none; }
 
 /* Pulsante con cui l'installatore si carica un intervento da solo. */
 .nuovo-mio {
@@ -1124,4 +1182,15 @@ dialog.conferma .bottoni .pulsante { flex: 1; }
 @media (prefers-reduced-motion: no-preference) {
   dialog.pannello { animation: entra-da-destra 0.18s ease-out; }
   @keyframes entra-da-destra { from { transform: translateX(16px); opacity: 0; } }
+}
+
+.in-ritardo {
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  background: var(--pericolo);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }

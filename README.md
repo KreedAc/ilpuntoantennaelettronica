@@ -168,7 +168,26 @@ nell'informativa privacy al punto 5.
   tecnici e i blocchi portano l'iniziale; con un filtro attivo le colonne
   tornano larghe.
 - **Installatore** — Giorno (i suoi), Settimana (i suoi), **Tutti** (la
-  giornata di entrambi). I lavori già fatti si raccolgono in fondo.
+  giornata di entrambi) e **Da assegnare**, un'icona con la pastiglia del
+  conteggio. I lavori già fatti si raccolgono in fondo.
+
+### Il mucchio "Da assegnare"
+
+In negozio Tiziana raccoglie le richieste senza fissare chi ci va; sono i
+tecnici a concordare l'orario definitivo col cliente. Prendere un lavoro libero
+è quindi **la via normale**, non un'eccezione — per questo la scheda porta una
+pastiglia col numero invece di nascondersi in fondo a un elenco.
+
+- un installatore può **prendersi** un lavoro libero, ma non affidarne uno a un
+  collega: per quello deve prima prenderlo, e poi usare "Passa a"
+- la vista parte da **una settimana fa**: un lavoro che nessuno ha preso e la
+  cui data è già passata porta l'etichetta **In ritardo**, invece di sparire
+- l'assegnazione usa un aggiornamento condizionato
+  (`assegnato_a IS NOT DISTINCT FROM` il valore letto): se due tecnici lo
+  prendono insieme, il secondo legge *"L'ha appena preso Michele"* invece di
+  credere di averlo in mano
+- prendere o passare un lavoro **non avvisa Tiziana**: le interessa che sia
+  coperto, non chi dei due se l'è preso. Annullarlo e segnarlo fatto invece sì
 
 ### Stato "fatto"
 
