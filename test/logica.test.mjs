@@ -16,6 +16,7 @@ import {
 } from '../netlify/lib/validazione.mjs';
 import { piuGiorni, lunedi, giornoSettimana, dataEstesa, intervalloSettimana } from '../netlify/lib/calendario.mjs';
 import { cifra, verifica } from '../netlify/lib/password.mjs';
+import { comeDire } from '../netlify/functions/promemoria.mjs';
 
 describe('fasce orarie', () => {
   test('vanno dalle 08:00 alle 19:30, di mezz\'ora in mezz\'ora', () => {
@@ -189,6 +190,32 @@ describe('scheda cliente', () => {
     assert.deepEqual(validaSpostamento({ data: '2026-09-22', ora: '15:30' }).errori, {});
     assert.ok(validaSpostamento({ data: '2026-09-22', ora: '15:20' }).errori.ora);
     assert.ok(validaSpostamento({ data: 'domani', ora: '15:30' }).errori.data);
+  });
+});
+
+describe('promemoria', () => {
+  test('dice quanto manca senza fingere precisione', () => {
+    assert.equal(comeDire(60), 'Fra circa un\'ora');
+    assert.equal(comeDire(58), 'Fra circa un\'ora');
+    assert.equal(comeDire(50), 'Fra circa un\'ora');
+    assert.equal(comeDire(43), 'Fra circa 45 minuti');
+    assert.equal(comeDire(32), 'Fra circa 30 minuti');
+    assert.equal(comeDire(13), 'Fra circa 15 minuti');
+  });
+
+  test('vicinissimo non dice un numero', () => {
+    // Arrotondando, 12 minuti diventerebbero 10 e 11 pure: meglio una frase
+    // che un numero sbagliato per difetto quando il tecnico deve partire.
+    assert.equal(comeDire(12), 'Fra pochi minuti');
+    assert.equal(comeDire(10), 'Fra pochi minuti');
+  });
+
+  test('non esce mai "fra circa 0 minuti"', () => {
+    for (let m = 0; m <= 90; m += 1) {
+      const frase = comeDire(m);
+      assert.ok(!/\b0 minuti\b/.test(frase), `con ${m} minuti esce "${frase}"`);
+      assert.ok(frase.length > 0);
+    }
   });
 });
 

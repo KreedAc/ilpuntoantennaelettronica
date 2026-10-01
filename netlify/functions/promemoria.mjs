@@ -1,33 +1,35 @@
-// Promemoria automatici.
+// Promemoria: un avviso circa un'ora prima di ogni intervento.
 //
 // Questa funzione non risponde a nessuna richiesta: la fa partire Netlify da
-// sola, ogni mezz'ora (vedi `config.schedule` in fondo).
-//
-// Perché ogni mezz'ora e non due volte al giorno: il cron di Netlify ragiona
-// in UTC, e un orario fisso si sposterebbe di un'ora a ogni cambio di ora
-// legale. Girando spesso e decidendo qui in base all'ora italiana, il problema
-// non si pone. Il costo è trascurabile — circa 2 crediti Netlify al mese.
+// sola, ogni mezz'ora (vedi `config.schedule` in fondo). Mezz'ora è anche il
+// passo delle fasce, quindi ogni appuntamento cade in una sola finestra.
 //
 // Perché non `pg_cron` dentro il database, come nel progetto della barberia:
 // lì Supabase teneva il database sempre acceso. Neon invece lo spegne dopo 5
 // minuti di inattività, e un cron interno a un database spento non parte.
 // La sveglia deve stare fuori.
+//
+// Costo: circa 2 crediti Netlify al mese, cioè due centesimi.
 
 import { sql } from '../lib/db.mjs';
 import { avvisa, chiavePubblica } from '../lib/push.mjs';
-import { oggi, piuGiorni, oraItaliana, dataEstesa } from '../lib/calendario.mjs';
+import { oraItaliana } from '../lib/calendario.mjs';
 
-/** Ora italiana in cui esce il riepilogo della sera (per il giorno dopo). */
-const ORA_SERA = 19;
-/** Ora italiana in cui esce il riepilogo della mattina (per oggi). */
-const ORA_MATTINA = 7;
+// Quanto prima avvisare. La finestra è più larga dei 60 minuti di proposito:
+// se una esecuzione saltasse, quella dopo recupera comunque l'appuntamento,
+// e il segno su `promemoria_inviati` impedisce il doppione.
+//
+// Con esecuzioni ogni 30 minuti, un intervento delle 10:00 ricade per la prima
+// volta nella finestra al giro delle 09:00 — cioè esattamente un'ora prima.
+const MINUTI_MINIMI = 10;
+const MINUTI_MASSIMI = 80;
 
 /**
  * Segna che un avviso è stato mandato, e dice se era già stato mandato prima.
  * È l'inserimento stesso a fare da guardia: se la chiave esiste già,
  * `ON CONFLICT DO NOTHING` non tocca niente e non restituisce righe. Due
  * esecuzioni ravvicinate non possono quindi mandare due volte lo stesso
- * riepilogo, nemmeno se partissero nello stesso istante.
+ * avviso, nemmeno se partissero nello stesso istante.
  */
 async function primaVolta(chiave) {
   const righe = await sql()`
@@ -38,97 +40,52 @@ async function primaVolta(chiave) {
   return righe.length > 0;
 }
 
-/** Gli interventi ancora da fare in un certo giorno, raggruppati per persona. */
-async function daFare(giorno) {
-  return await sql()`
-    SELECT
-      a.assegnato_a,
-      to_char(a.ora, 'HH24:MI') AS ora,
-      a.nome_cliente,
-      a.urgente
-    FROM appuntamenti a
-    WHERE a.stato = 'attivo' AND a.data = ${giorno}
-    ORDER BY a.ora, a.id
-  `;
-}
-
-function riassunto(elenco) {
-  const urgenti = elenco.filter((a) => a.urgente).length;
-  const parti = [`${elenco.length} ${elenco.length === 1 ? 'intervento' : 'interventi'}`];
-  if (urgenti > 0) parti.push(`${urgenti} ${urgenti === 1 ? 'urgente' : 'urgenti'}`);
-  return parti.join(' · ');
+/**
+ * Gli interventi che stanno per cominciare.
+ *
+ * Il confronto fra l'orario dell'appuntamento e l'ora attuale lo fa Postgres,
+ * che conosce il fuso di Roma e l'ora legale: `(data + ora) AT TIME ZONE
+ * 'Europe/Rome'` trasforma il "giovedì alle 15:00" scritto in agenda
+ * nell'istante giusto, qualunque sia il fuso del server.
+ *
+ * Restano fuori i lavori già fatti, quelli annullati e quelli ancora da
+ * assegnare: non c'è nessuno da avvisare.
+ */
+async function inArrivo() {
+  return await sql().query(
+    `SELECT
+       a.id,
+       a.assegnato_a,
+       a.nome_cliente,
+       a.urgente,
+       to_char(a.data, 'YYYY-MM-DD') AS data,
+       to_char(a.ora,  'HH24:MI')    AS ora,
+       round(EXTRACT(EPOCH FROM
+         ((a.data + a.ora) AT TIME ZONE 'Europe/Rome') - now()) / 60)::int AS fra_quanti_minuti
+     FROM appuntamenti a
+     WHERE a.stato = 'attivo'
+       AND a.assegnato_a IS NOT NULL
+       AND (a.data + a.ora) AT TIME ZONE 'Europe/Rome'
+           BETWEEN now() + ($1::int * interval '1 minute')
+               AND now() + ($2::int * interval '1 minute')
+     ORDER BY a.data, a.ora`,
+    [MINUTI_MINIMI, MINUTI_MASSIMI],
+  );
 }
 
 /**
- * Manda il riepilogo di un giorno a ogni installatore che ha qualcosa da fare,
- * e uno complessivo agli amministratori.
+ * Come dire quanto manca, senza far sembrare preciso qualcosa che non lo è.
+ * Le esecuzioni sono ogni mezz'ora, quindi "fra 58 minuti" darebbe
+ * un'impressione di precisione che non abbiamo: si arrotonda a cinque minuti
+ * e sopra i tre quarti d'ora si dice semplicemente "circa un'ora".
  */
-async function riepilogo({ giorno, quandoDice, prefisso }) {
-  const righe = await daFare(giorno);
-
-  const perPersona = new Map();
-  let senzaAssegnatario = 0;
-  for (const r of righe) {
-    if (r.assegnato_a === null) { senzaAssegnatario += 1; continue; }
-    if (!perPersona.has(r.assegnato_a)) perPersona.set(r.assegnato_a, []);
-    perPersona.get(r.assegnato_a).push(r);
-  }
-
-  const url = `/appuntamenti/?vista=giorno&giorno=${giorno}`;
-  let mandati = 0;
-
-  for (const [utenteId, suoi] of perPersona) {
-    if (!(await primaVolta(`${prefisso}:${giorno}:u${utenteId}`))) continue;
-
-    const primo = suoi[0];
-    await avvisa([utenteId], {
-      titolo: `${quandoDice}: ${riassunto(suoi)}`,
-      testo: `Si comincia alle ${primo.ora} da ${primo.nome_cliente}` +
-             (suoi.some((a) => a.urgente) ? ' · ci sono interventi urgenti' : ''),
-      url,
-      tag: `riepilogo-${giorno}`,
-    });
-    mandati += 1;
-  }
-
-  // A Tiziana il quadro d'insieme, più il promemoria di quello che resta da
-  // assegnare: è la cosa che le sfugge più facilmente.
-  const admin = await sql()`SELECT id FROM utenti WHERE ruolo = 'admin'`;
-  for (const { id } of admin) {
-    if (righe.length === 0 && senzaAssegnatario === 0) continue;
-    if (!(await primaVolta(`${prefisso}:${giorno}:u${id}`))) continue;
-
-    const pezzi = [];
-    for (const [utenteId, suoi] of perPersona) {
-      const nome = await nomeDi(utenteId);
-      pezzi.push(`${nome}: ${suoi.length}`);
-    }
-    if (senzaAssegnatario > 0) {
-      pezzi.push(`da assegnare: ${senzaAssegnatario}`);
-    }
-
-    await avvisa([id], {
-      titolo: `${quandoDice}: ${riassunto(righe)}`,
-      testo: pezzi.join(' · ') || 'Nessun intervento in programma',
-      url,
-      tag: `riepilogo-${giorno}`,
-    });
-    mandati += 1;
-  }
-
-  return mandati;
+export function comeDire(minuti) {
+  if (minuti >= 50) return 'Fra circa un\'ora';
+  if (minuti <= 12) return 'Fra pochi minuti';
+  return `Fra circa ${Math.round(minuti / 5) * 5} minuti`;
 }
 
-const nomiVisti = new Map();
-async function nomeDi(id) {
-  if (nomiVisti.has(id)) return nomiVisti.get(id);
-  const righe = await sql()`SELECT nome FROM utenti WHERE id = ${id} LIMIT 1`;
-  const nome = righe[0]?.nome ?? 'Installatore';
-  nomiVisti.set(id, nome);
-  return nome;
-}
-
-/** Ripulisce i segni più vecchi di un mese: non servono più a niente. */
+/** Ripulisce i segni vecchi: una volta al giorno, di notte, basta e avanza. */
 async function ripulisci() {
   try {
     await sql()`DELETE FROM promemoria_inviati WHERE quando < now() - interval '30 days'`;
@@ -141,29 +98,30 @@ export default async () => {
     return;
   }
 
-  const { ore } = oraItaliana();
+  const righe = await inArrivo();
   let mandati = 0;
 
-  if (ore === ORA_SERA) {
-    const domani = piuGiorni(oggi(), 1);
-    mandati = await riepilogo({
-      giorno: domani,
-      quandoDice: `Domani, ${dataEstesa(domani, { conAnno: false })}`,
-      prefisso: 'sera',
+  for (const a of righe) {
+    // La chiave contiene data e ora: se l'appuntamento viene rimandato,
+    // l'avviso riparte per il nuovo orario invece di restare muto.
+    if (!(await primaVolta(`prima:${a.id}:${a.data}:${a.ora}`))) continue;
+
+    await avvisa([a.assegnato_a], {
+      titolo: comeDire(a.fra_quanti_minuti),
+      testo: `Ore ${a.ora} · ${a.nome_cliente}` + (a.urgente ? ' · Urgente' : ''),
+      url: `/appuntamenti/?vista=giorno&giorno=${a.data}`,
+      tag: `app-${a.id}`,
     });
-  } else if (ore === ORA_MATTINA) {
-    const adesso = oggi();
-    mandati = await riepilogo({
-      giorno: adesso,
-      quandoDice: 'Oggi',
-      prefisso: 'mattina',
-    });
-    await ripulisci();
+    mandati += 1;
   }
 
-  // Nel log niente nomi di clienti: solo quante notifiche sono partite.
-  console.log(`Promemoria: ore ${ore} in Italia, ${mandati} riepiloghi inviati.`);
+  const { ore, minuti } = oraItaliana();
+  if (ore === 3 && minuti < 30) await ripulisci();
+
+  // Nel log niente nomi di clienti: solo quanti avvisi sono partiti.
+  console.log(`Promemoria: ore ${ore}:${String(minuti).padStart(2, '0')} in Italia, ` +
+              `${righe.length} interventi in arrivo, ${mandati} avvisi inviati.`);
 };
 
-// Ogni mezz'ora. È la funzione stessa a decidere se è il momento di parlare.
+// Ogni mezz'ora, come il passo delle fasce.
 export const config = { schedule: '*/30 * * * *' };

@@ -217,15 +217,19 @@ porta anche l'iniziale, e "Urgente" e "Fatto" sono scritti a parole.
 ### Promemoria automatici
 
 `netlify/functions/promemoria.mjs` non risponde a nessuna richiesta: la fa
-partire Netlify **ogni mezz'ora** (`config.schedule`). È la funzione stessa a
-decidere se è il momento di parlare, guardando l'**ora italiana**:
+partire Netlify **ogni mezz'ora** (`config.schedule`), che è anche il passo
+delle fasce. A ogni giro cerca gli interventi **attivi e assegnati** che
+cominciano fra 10 e 80 minuti, e avvisa chi li deve fare.
 
-- verso le **19** — a ciascun installatore il riepilogo di domani, a Tiziana il
-  quadro d'insieme più quanti lavori restano da assegnare
-- verso le **7** — la giornata che comincia
+Con esecuzioni ogni 30 minuti, un intervento delle 10:00 ricade per la prima
+volta in quella finestra al giro delle 09:00: **l'avviso arriva un'ora prima**.
+La finestra è più larga apposta — se un'esecuzione saltasse, la successiva
+recupera comunque l'appuntamento invece di lasciarlo senza avviso.
 
-Perché ogni mezz'ora e non due volte al giorno: il cron di Netlify ragiona in
-UTC, e un orario fisso si sposterebbe di un'ora a ogni cambio di ora legale.
+Il confronto fra l'orario in agenda e l'ora attuale lo fa Postgres
+(`(data + ora) AT TIME ZONE 'Europe/Rome'`), che conosce l'ora legale: il cron
+di Netlify ragiona in UTC e un orario fisso si sposterebbe due volte l'anno.
+
 Costa circa **2 crediti Netlify al mese**, cioè due centesimi.
 
 Perché non `pg_cron` dentro il database: Neon spegne il database dopo 5 minuti
@@ -234,7 +238,9 @@ deve stare fuori.
 
 La tabella `promemoria_inviati` impedisce i doppioni: è l'`INSERT … ON CONFLICT
 DO NOTHING` stesso a fare da guardia, quindi nemmeno due esecuzioni simultanee
-possono mandare due volte lo stesso riepilogo.
+possono mandare due volte lo stesso avviso. La chiave contiene **data e ora**
+dell'appuntamento (`prima:12:2026-10-02:15:00`), così un intervento rimandato
+fa ripartire l'avviso per il nuovo orario invece di restare muto.
 
 ### Notifiche sul telefono dell'installatore
 
