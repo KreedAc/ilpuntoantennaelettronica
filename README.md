@@ -263,7 +263,15 @@ fa ripartire l'avviso per il nuovo orario invece di restare muto.
 
 ### Notifiche sul telefono dell'installatore
 
-L'installatore le attiva da solo, dal riquadro in fondo alla vista Giorno.
+Le attivano da soli, dal **campanello nella barra in alto**: una spunta verde
+se arrivano, una croce rossa se no. Premendolo si apre una finestra che spiega
+lo stato e permette di accenderle o spegnerle su quel dispositivo.
+
+All'apertura, se non sono attive, la stessa finestra compare da sola. Non è il
+permesso del browser: quello si può chiedere **solo dentro un gesto
+dell'utente**, quindi parte dal tocco su «Attiva le notifiche». Chi risponde
+«Non adesso» non se la ritrova per sette giorni (ricordato in `localStorage`,
+che è una comodità di quel dispositivo e non un dato da conservare altrove).
 
 - **Android**: funzionano dal browser, senza installare niente.
 - **iPhone**: solo dopo *Condividi → Aggiungi a Home*, e poi riaprendo il
@@ -272,6 +280,12 @@ L'installatore le attiva da solo, dal riquadro in fondo alla vista Giorno.
 
 Nella notifica finiscono **solo giorno, ora e nome**: indirizzo, telefono e
 prezzo restano dietro il login.
+
+Il **titolo cambia a seconda di chi legge**, perché spesso è l'unica riga che
+si vede davvero. Quando un lavoro passa di mano — dal menu della scheda, dal
+cassetto o dal mucchio dei lavori liberi — chi lo riceve legge «Intervento
+assegnato a te» e chi lo lascia «Intervento passato a *nome*». I titoli stanno
+in `netlify/lib/avvisi.mjs`, fuori dall'API, perché si possano provare da soli.
 
 ### Regole di funzionamento
 

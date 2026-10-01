@@ -20,6 +20,7 @@ import {
 } from '../lib/sessione.mjs';
 import { verifica, cifra, bruciaTempo, LUNGHEZZA_MINIMA } from '../lib/password.mjs';
 import { avvisa, chiavePubblica, conNotificheAttive } from '../lib/push.mjs';
+import { titoliCambioTecnico } from '../lib/avvisi.mjs';
 import {
   FASCE, ORA_INIZIO, ORA_FINE, PASSO_MINUTI,
   TENTATIVI_MASSIMI, FINESTRA_TENTATIVI_MINUTI, versioneInLinea,
@@ -237,9 +238,11 @@ async function installatoreValido(id) {
  * Nella notifica finiscono solo giorno, ora e nome del cliente: indirizzo,
  * telefono e prezzo restano nel pannello, dietro il login.
  */
-async function notifica(titolo, appuntamento, attore, { anche = [] } = {}) {
+async function notifica(titolo, appuntamento, attore, { anche = [], a = null } = {}) {
   try {
-    const destinatari = [appuntamento.assegnato_a, ...anche]
+    // `a` serve quando il titolo cambia a seconda di chi legge: in quel caso
+    // i destinatari si elencano a mano invece di partire dall'assegnatario.
+    const destinatari = (a ?? [appuntamento.assegnato_a, ...anche])
       .filter((id) => Number.isInteger(id) && id !== attore.id);
     if (destinatari.length === 0) return;
 
@@ -260,6 +263,25 @@ async function notifica(titolo, appuntamento, attore, { anche = [] } = {}) {
 /** Gli amministratori, da avvisare quando è un installatore a muovere qualcosa. */
 async function ancheGliAdmin(attore) {
   return attore.ruolo === 'admin' ? [] : await idsAmministratori();
+}
+
+/**
+ * Un cambio di tecnico va raccontato in due modi diversi.
+ *
+ * Sul telefono si legge il titolo, il resto spesso no: chi riceve il lavoro
+ * deve capire che è suo, chi lo perde che non lo è più. Lo stesso titolo per
+ * entrambi — o peggio "Intervento spostato", che parla dell'orario — li manda
+ * fuori strada tutti e due.
+ */
+async function notificaCambioTecnico(aggiornato, precedente, attore) {
+  const avvisi = titoliCambioTecnico({
+    precedente,
+    nuovo: aggiornato.assegnato_a,
+    nuovoNome: aggiornato.assegnato_nome,
+  });
+  for (const { a, titolo } of avvisi) {
+    await notifica(titolo, aggiornato, attore, { a: [a] });
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -510,11 +532,15 @@ async function patchAppuntamento(req, id, utente) {
 
   const aggiornato = await leggiAppuntamento(id);
   const spostato = aggiornato.data !== esistente.data || aggiornato.ora !== esistente.ora;
-  await notifica(
-    spostato ? 'Intervento spostato' : 'Intervento aggiornato',
-    aggiornato, utente,
-    { anche: [...(await ancheGliAdmin(utente)), esistente.assegnato_a] },
-  );
+  const titolo = spostato ? 'Intervento spostato' : 'Intervento aggiornato';
+
+  // Da questa scheda si può anche cambiare il tecnico: se è successo, conta
+  // più quello di tutto il resto, perché per chi lo riceve è un lavoro nuovo.
+  if (aggiornato.assegnato_a !== esistente.assegnato_a) {
+    await notificaCambioTecnico(aggiornato, esistente.assegnato_a, utente);
+  } else {
+    await notifica(titolo, aggiornato, utente, { anche: await ancheGliAdmin(utente) });
+  }
   return risposta({ appuntamento: perIlBrowser(aggiornato) });
 }
 
@@ -620,11 +646,10 @@ async function patchAssegna(req, id, utente) {
   }
 
   const aggiornato = await leggiAppuntamento(id);
-  // Avvisiamo chi lo riceve e chi lo perde. Tiziana no: le interessa che il
-  // lavoro sia coperto, non chi dei due se l'è preso.
-  await notifica('Intervento assegnato a te', aggiornato, utente, {
-    anche: [esistente.assegnato_a],
-  });
+  // Avvisiamo chi lo riceve e chi lo perde, ciascuno con il suo titolo.
+  // Tiziana no: le interessa che il lavoro sia coperto, non chi dei due se
+  // l'è preso.
+  await notificaCambioTecnico(aggiornato, esistente.assegnato_a, utente);
   return risposta({ appuntamento: perIlBrowser(aggiornato) });
 }
 

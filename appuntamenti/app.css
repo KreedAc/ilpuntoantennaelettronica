@@ -813,6 +813,35 @@ dialog.conferma .riassunto strong { display: block; font-size: 16px; }
 dialog.conferma p { margin: 0 0 1.25rem; color: var(--testo-secondario); font-size: 14px; }
 dialog.conferma .bottoni { display: flex; gap: 0.75rem; }
 dialog.conferma .bottoni .pulsante { flex: 1; }
+/* `dialog.conferma p` è più specifico di `.avviso`: senza questa riga il
+   messaggio d'errore dentro una finestra resterebbe grigio invece che rosso. */
+dialog.conferma .avviso { margin-bottom: 1rem; color: var(--pericolo); }
+
+/* Campanello delle notifiche ---------------------------------------- */
+/* Sta nella barra, con un segno sopra l'angolo: spunta verde se arrivano,
+   croce rossa se no. Il colore da solo non basterebbe. */
+.pulsante.campanello { position: relative; overflow: visible; }
+.pulsante.campanello .segno-stato {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--superficie);
+  border-radius: 50%;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+}
+.pulsante.campanello .segno-stato.si { background: var(--fatto); }
+.pulsante.campanello .segno-stato.no { background: var(--pericolo); }
+/* Sulla barra scura del telefono il bordino deve sparire nello sfondo. */
+.pulsante.campanello.chiaro .segno-stato { border-color: var(--blu); }
+.pulsante.campanello.spente:not(.chiaro) { border-color: var(--pericolo); }
 
 /* ------------------------------------------------------------------ */
 /* Installatore                                                        */
@@ -1092,30 +1121,6 @@ dialog.conferma .bottoni .pulsante { flex: 1; }
 .chiama svg { width: 22px; height: 22px; }
 
 .barra-indietro { padding: 0.85rem 1.15rem; }
-
-.riga-notifiche {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  margin: 1rem 1.15rem 0;
-  padding: 0.85rem 1rem;
-  border: 1px solid var(--linea);
-  border-radius: 14px;
-  background: var(--superficie);
-  font-size: 14px;
-}
-.riga-notifiche .testo { flex: 1; }
-.riga-notifiche .stato { display: block; font-size: 13px; color: var(--testo-secondario); }
-
-/* Le push possono smettere in silenzio: quando non sono attive, la riga deve
-   farsi notare, non restare una scritta grigia in fondo alla pagina. */
-.riga-notifiche.da-sistemare {
-  border-color: var(--urgente-bordo);
-  border-left-width: 4px;
-  background: var(--urgente-fondo);
-  color: var(--urgente-testo);
-}
-.riga-notifiche.da-sistemare .stato { color: var(--urgente-testo); }
 
 /* Azioni del dettaglio sul telefono. */
 .fatto-grande {

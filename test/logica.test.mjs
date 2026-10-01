@@ -17,6 +17,7 @@ import {
 import { piuGiorni, lunedi, giornoSettimana, dataEstesa, intervalloSettimana } from '../netlify/lib/calendario.mjs';
 import { cifra, verifica } from '../netlify/lib/password.mjs';
 import { comeDire } from '../netlify/functions/promemoria.mjs';
+import { titoliCambioTecnico } from '../netlify/lib/avvisi.mjs';
 
 describe('fasce orarie', () => {
   test('vanno dalle 08:00 alle 19:30, di mezz\'ora in mezz\'ora', () => {
@@ -235,6 +236,45 @@ describe('promemoria', () => {
       assert.ok(!/\b0 minuti\b/.test(frase), `con ${m} minuti esce "${frase}"`);
       assert.ok(frase.length > 0);
     }
+  });
+});
+
+describe('passaggio di un lavoro da un tecnico all\'altro', () => {
+  test('chi lo riceve legge che e\' suo, non che e\' stato spostato', () => {
+    // Era nel mucchio dei lavori da assegnare e Tiziana lo da\' a Michele.
+    // Dalla scheda il salvataggio passa dalla stessa strada di una modifica
+    // qualsiasi: senza distinguere, a Michele arrivava "Intervento spostato",
+    // che parla di un orario cambiato e non di un lavoro nuovo.
+    assert.deepEqual(
+      titoliCambioTecnico({ precedente: null, nuovo: 2, nuovoNome: 'Michele' }),
+      [{ a: 2, titolo: 'Intervento assegnato a te' }],
+    );
+  });
+
+  test('chi lo perde non legge "assegnato a te"', () => {
+    assert.deepEqual(
+      titoliCambioTecnico({ precedente: 2, nuovo: 3, nuovoNome: 'Alessandro' }),
+      [
+        { a: 3, titolo: 'Intervento assegnato a te' },
+        { a: 2, titolo: 'Intervento passato a Alessandro' },
+      ],
+    );
+  });
+
+  test('se torna nel mucchio non e\' passato a nessuno', () => {
+    assert.deepEqual(
+      titoliCambioTecnico({ precedente: 2, nuovo: null, nuovoNome: null }),
+      [{ a: 2, titolo: 'Intervento non pi\u00f9 tuo' }],
+    );
+  });
+
+  test('senza cambi non avvisa chi lo aveva gia\'', () => {
+    assert.deepEqual(
+      titoliCambioTecnico({ precedente: 2, nuovo: 2, nuovoNome: 'Michele' }),
+      [{ a: 2, titolo: 'Intervento assegnato a te' }],
+      'chi lo riceve va avvisato comunque: la funzione si chiama solo quando cambia',
+    );
+    assert.deepEqual(titoliCambioTecnico({}), [], 'senza nessuno dei due non c\'e\' niente da dire');
   });
 });
 

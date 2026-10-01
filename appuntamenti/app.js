@@ -145,6 +145,9 @@ const stato = {
   appuntamenti: [],
   daAssegnare: 0,
   disegnoCorrente: 0,
+  // Stato delle notifiche su questo dispositivo, riletto a ogni avvio:
+  // 'attive' | 'spente' | 'negate' | 'da-installare' | 'non-supportate' | 'non-configurate'.
+  notifiche: 'non-configurate',
 };
 
 const radice = document.getElementById('app');
@@ -211,8 +214,9 @@ function vistaAccesso(messaggio) {
           },
         });
         stato.utente = utente;
-        await caricaUtenti();
+        await Promise.all([caricaUtenti(), aggiornaStatoNotifiche()]);
         vai(rottaPredefinita(), { sostituisci: true });
+        proponiNotifiche();
       } catch (e2) {
         errore.textContent = e2.message;
         errore.hidden = false;
@@ -376,6 +380,7 @@ function barraSuperiore() {
     el('span', { class: 'sezione', testo: 'Appuntamenti' }),
     el('div', { class: 'destra' },
       el('span', { class: 'chi', testo: `${stato.utente.nome} · Amministratore` }),
+      pulsanteNotifiche(),
       el('button', {
         class: 'pulsante', type: 'button', testo: 'Cambia password',
         onclick: () => vai({ vista: 'password' }),
@@ -1100,6 +1105,7 @@ function testaInstallatore() {
   return el('header', { class: 'testa-installatore' },
     el('span', { class: 'nome', testo: 'Il Punto Antenna' }),
     el('div', { class: 'azioni' },
+      pulsanteNotifiche({ chiaro: true }),
       el('button', {
         class: 'pulsante chiaro icona', type: 'button', icona: 'chiave',
         'aria-label': 'Cambia password',
@@ -1317,7 +1323,6 @@ function vistaGiornoInstallatore(giorno) {
       onclick: () => apriNuovo({ data: giorno }),
     }, 'Aggiungi un intervento mio'),
     elencoConFatti(miei),
-    rigaNotifiche(),
   );
 }
 
@@ -1558,98 +1563,187 @@ function daBase64(base64) {
   return Uint8Array.from(binario, (c) => c.charCodeAt(0));
 }
 
-function rigaNotifiche() {
-  if (!stato.config?.chiavePush) return null;
-
-  // Su iPhone le notifiche web arrivano solo se il sito è stato aggiunto alla
-  // schermata Home: è un vincolo di Apple, non c'è modo di aggirarlo.
-  if (suIOS() && !installataSuHome()) {
-    return el('div', { class: 'riga-notifiche da-sistemare' },
-      el('span', { icona: 'campana', 'aria-hidden': 'true' }),
-      el('div', { class: 'testo' },
-        'Le notifiche non sono attive',
-        el('span', {
-          class: 'stato',
-          testo: 'Su iPhone: tocca Condividi, poi «Aggiungi a Home». Riapri il pannello da lì e torna qui.',
-        }),
-      ),
-    );
-  }
-
-  if (!supportaPush()) return null;
-
-  const contenitore = el('div', { class: 'riga-notifiche' });
-  const stampa = el('span', { class: 'stato', testo: 'Controllo…' });
-  const bottone = el('button', { class: 'pulsante', type: 'button', testo: 'Attiva' });
-
-  // L'iscrizione può morire in silenzio — dati del browser ripuliti, app
-  // disinstallata, pulizia del sistema. È il punto debole delle push: il
-  // guasto va reso visibile, non lasciato scoprire con un intervento saltato.
-  const aggiorna = async () => {
-    if (Notification.permission === 'denied') {
-      contenitore.classList.add('da-sistemare');
-      stampa.textContent = 'Bloccate nelle impostazioni del browser.';
-      bottone.hidden = true;
-      return;
-    }
+/**
+ * In che stato sono le notifiche su QUESTO dispositivo.
+ *
+ * Non basta il permesso del browser: l'iscrizione può essere sparita da sola
+ * — dati ripuliti, app disinstallata, pulizia del sistema — ed è il punto
+ * debole delle push. Per questo lo stato si rilegge, non si dà per buono.
+ */
+async function leggiStatoNotifiche() {
+  if (!stato.config?.chiavePush) return 'non-configurate';
+  // Su iPhone le notifiche web arrivano solo dall'app aggiunta alla schermata
+  // Home: è un vincolo di Apple, non c'è modo di aggirarlo.
+  if (suIOS() && !installataSuHome()) return 'da-installare';
+  if (!supportaPush()) return 'non-supportate';
+  if (Notification.permission === 'denied') return 'negate';
+  try {
     const registrazione = await navigator.serviceWorker.getRegistration();
     const iscrizione = await registrazione?.pushManager.getSubscription();
-    if (iscrizione) {
-      contenitore.classList.remove('da-sistemare');
-      stampa.textContent = 'Attive su questo dispositivo.';
-      bottone.textContent = 'Disattiva';
-    } else {
-      contenitore.classList.add('da-sistemare');
-      stampa.textContent = 'Non riceverai avvisi per i nuovi interventi.';
-      bottone.textContent = 'Attiva';
+    return iscrizione ? 'attive' : 'spente';
+  } catch {
+    return 'spente';
+  }
+}
+
+async function aggiornaStatoNotifiche() {
+  stato.notifiche = await leggiStatoNotifiche();
+}
+
+/** Accende le notifiche su questo dispositivo. Va chiamata da un tocco. */
+async function attivaNotifiche() {
+  const registrazione = await navigator.serviceWorker.register('sw.js');
+  await navigator.serviceWorker.ready;
+
+  // requestPermission va chiamata dentro il gesto dell'utente: è il motivo
+  // per cui la finestra che la precede è nostra e non quella del browser.
+  if (await Notification.requestPermission() !== 'granted') {
+    throw new Error('Permesso non concesso. Puoi riprovare quando vuoi da qui.');
+  }
+  const iscrizione = await registrazione.pushManager.subscribe({
+    userVisibleOnly: true,
+    applicationServerKey: daBase64(stato.config.chiavePush),
+  });
+  await api('/push/iscrizione', {
+    metodo: 'POST',
+    corpo: { endpoint: iscrizione.endpoint, chiavi: iscrizione.toJSON().keys },
+  });
+}
+
+async function spegniNotifiche() {
+  const registrazione = await navigator.serviceWorker.getRegistration();
+  const esistente = await registrazione?.pushManager.getSubscription();
+  if (!esistente) return;
+  // Prima si avvisa il server, poi si disiscrive il dispositivo: se la
+  // chiamata fallisce, l'eccezione ferma tutto e l'iscrizione resta valida da
+  // entrambe le parti. Al contrario resterebbe una riga fantasma nel
+  // database, e Tiziana vedrebbe le notifiche come attive.
+  await api('/push/disiscrizione', { metodo: 'POST', corpo: { endpoint: esistente.endpoint } });
+  await esistente.unsubscribe();
+}
+
+/** Il campanello nella barra, con il segno dello stato. */
+function pulsanteNotifiche({ chiaro = false } = {}) {
+  if (stato.notifiche === 'non-configurate') return null;
+
+  const attive = stato.notifiche === 'attive';
+  const bottone = el('button', {
+    class: `pulsante icona campanello${chiaro ? ' chiaro' : ''}${attive ? ' attive' : ' spente'}`,
+    type: 'button',
+    icona: 'campana',
+    'aria-label': attive ? 'Notifiche attive' : 'Notifiche non attive',
+    title: attive ? 'Notifiche attive' : 'Notifiche non attive',
+    onclick: () => apriNotifiche(),
+  });
+  // Un segno, non solo un colore: spunta se vanno, croce se no.
+  bottone.append(el('span', {
+    class: `segno-stato${attive ? ' si' : ' no'}`, 'aria-hidden': 'true',
+    testo: attive ? '✓' : '✕',
+  }));
+  return bottone;
+}
+
+const SPIEGAZIONI = {
+  attive: 'Ricevi un avviso quando ti viene assegnato un intervento, quando viene spostato o annullato, e circa un’ora prima di ogni appuntamento.',
+  spente: 'Senza notifiche non ricevi nessun avviso: gli interventi nuovi li scopri solo aprendo il pannello.',
+  negate: 'Le notifiche sono state bloccate nelle impostazioni del browser per questo sito. Vanno riattivate da lì: cerca il lucchetto accanto all’indirizzo, poi Notifiche.',
+  'da-installare': 'Su iPhone le notifiche funzionano solo con il pannello aggiunto alla schermata Home. Tocca Condividi, poi «Aggiungi a Home», apri il pannello da quell’icona e torna qui.',
+  'non-supportate': 'Questo browser non supporta le notifiche. Provane un altro, oppure usa il telefono.',
+};
+
+/** Finestra delle notifiche: stato, spiegazione e il pulsante per cambiarlo. */
+function apriNotifiche({ allAvvio = false } = {}) {
+  if (document.querySelector('dialog.notifiche')) return;
+
+  const attive = stato.notifiche === 'attive';
+  const siPuoAttivare = stato.notifiche === 'spente';
+
+  const finestra = el('dialog', { class: 'conferma notifiche', 'aria-labelledby': 'titolo-notifiche' });
+  const avviso = el('p', { class: 'avviso', role: 'alert', hidden: true });
+  // Negli stati in cui non c'è niente da premere — permesso negato, iPhone
+  // da aggiungere a Home, browser senza push — il pulsante non si disegna:
+  // meglio nessun pulsante che uno che non può fare il suo lavoro.
+  const principale = attive || siPuoAttivare
+    ? el('button', {
+        class: `pulsante${siPuoAttivare ? ' primario' : ''}`, type: 'button',
+        testo: attive ? 'Disattiva su questo dispositivo' : 'Attiva le notifiche',
+      })
+    : null;
+
+  const cambia = async () => {
+    principale.disabled = true;
+    principale.textContent = attive ? 'Disattivo…' : 'Attivo…';
+    avviso.hidden = true;
+    try {
+      if (attive) await spegniNotifiche();
+      else await attivaNotifiche();
+      await aggiornaStatoNotifiche();
+      finestra.close();
+      await disegna();
+    } catch (e) {
+      avviso.textContent = e.message ?? 'Non è stato possibile cambiare le notifiche.';
+      avviso.hidden = false;
+      principale.disabled = false;
+      principale.textContent = attive ? 'Disattiva su questo dispositivo' : 'Attiva le notifiche';
     }
   };
+  principale?.addEventListener('click', cambia);
 
-  bottone.addEventListener('click', async () => {
-    bottone.disabled = true;
-    try {
-      const registrazione = await navigator.serviceWorker.register('sw.js');
-      await navigator.serviceWorker.ready;
-      const esistente = await registrazione.pushManager.getSubscription();
-
-      if (esistente) {
-        // Prima si avvisa il server, poi si disiscrive il dispositivo: se la
-        // chiamata fallisce, l'eccezione ferma tutto e l'iscrizione resta
-        // valida da entrambe le parti. Al contrario resterebbe una riga
-        // fantasma nel database, e Tiziana continuerebbe a vedere le
-        // notifiche come attive.
-        await api('/push/disiscrizione', { metodo: 'POST', corpo: { endpoint: esistente.endpoint } });
-        await esistente.unsubscribe();
-      } else {
-        if (await Notification.requestPermission() !== 'granted') {
-          stampa.textContent = 'Permesso non concesso.';
-          return;
-        }
-        const iscrizione = await registrazione.pushManager.subscribe({
-          userVisibleOnly: true,
-          applicationServerKey: daBase64(stato.config.chiavePush),
-        });
-        await api('/push/iscrizione', {
-          metodo: 'POST',
-          corpo: { endpoint: iscrizione.endpoint, chiavi: iscrizione.toJSON().keys },
-        });
-      }
-      await aggiorna();
-    } catch (e) {
-      stampa.textContent = e.message ?? 'Non è stato possibile cambiare le notifiche.';
-    } finally {
-      bottone.disabled = false;
-    }
-  });
-
-  aggiorna();
-
-  contenitore.append(
-    el('span', { icona: 'campana', 'aria-hidden': 'true' }),
-    el('div', { class: 'testo' }, 'Notifiche', stampa),
-    bottone,
+  finestra.append(
+    el('h2', { id: 'titolo-notifiche', testo: attive ? 'Notifiche attive' : 'Notifiche non attive' }),
+    avviso,
+    el('p', { testo: SPIEGAZIONI[stato.notifiche] ?? '' }),
+    el('div', { class: 'bottoni' },
+      el('button', {
+        class: 'pulsante', type: 'button',
+        testo: allAvvio && !attive ? 'Non adesso' : 'Chiudi',
+        onclick: () => {
+          if (allAvvio) rimandaRichiestaNotifiche();
+          finestra.close();
+        },
+      }),
+      principale,
+    ),
   );
-  return contenitore;
+
+  finestra.addEventListener('close', () => finestra.remove());
+  document.body.append(finestra);
+  finestra.showModal();
+}
+
+// --- quando riproporre la richiesta ----------------------------------------
+// Il rifiuto si ricorda nella memoria del browser: è una comodità di questo
+// dispositivo, non un dato da conservare altrove. Se la memoria non è
+// disponibile — finestra anonima, dati bloccati — si riparte chiedendo, che è
+// il male minore.
+
+const CHIAVE_RINVIO = 'pa-notifiche-rimandate';
+const GIORNI_DI_PACE = 7;
+
+function rimandaRichiestaNotifiche() {
+  try { localStorage.setItem(CHIAVE_RINVIO, String(Date.now())); } catch { /* pazienza */ }
+}
+
+function richiestaDaRiproporre() {
+  try {
+    const quando = Number(localStorage.getItem(CHIAVE_RINVIO));
+    if (!quando) return true;
+    return Date.now() - quando > GIORNI_DI_PACE * 24 * 60 * 60 * 1000;
+  } catch {
+    return true;
+  }
+}
+
+/**
+ * All'apertura, se le notifiche non sono attive, lo si fa notare una volta.
+ * Non è il permesso del browser — quello parte solo dal tocco su "Attiva" —
+ * ma una finestra nostra, che prima spiega a cosa servono.
+ */
+function proponiNotifiche() {
+  if (stato.notifiche === 'attive' || stato.notifiche === 'non-configurate') return;
+  if (stato.notifiche === 'non-supportate') return;
+  if (!richiestaDaRiproporre()) return;
+  apriNotifiche({ allAvvio: true });
 }
 
 // ---------------------------------------------------------------------------
@@ -1925,7 +2019,11 @@ async function avvia() {
     stato.utente = null; // non collegato: si parte dalla pagina di accesso
   }
 
+  if (stato.utente) await aggiornaStatoNotifiche();
   await disegna();
+  // All'apertura, a chi è già dentro, si propone di accenderle. Dopo il
+  // disegno: la finestra si appoggia sul pannello, non sul vuoto.
+  if (stato.utente) proponiNotifiche();
 }
 
 avvia();
