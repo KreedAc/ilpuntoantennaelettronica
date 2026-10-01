@@ -388,6 +388,15 @@ async function caricaIntervallo(dal, al) {
   return appuntamenti;
 }
 
+/**
+ * Il prezzo come si legge nella scheda.
+ *
+ * Zero vuol dire che non è stato concordato: in questo mestiere capita
+ * spesso, perché la cifra si decide dopo aver visto l'impianto. Scrivere
+ * «€ 0,00» farebbe pensare a un lavoro gratis.
+ */
+const prezzoScritto = (a) => (a.prezzoCentesimi ? `€ ${a.prezzoConcordato}` : 'Da concordare');
+
 const diQuelGiorno = (elenco, giorno) => elenco.filter((a) => a.data === giorno);
 const diQuellaPersona = (elenco, id) => elenco.filter((a) => a.assegnatoA === id);
 const daAssegnare = (elenco) => elenco.filter((a) => a.assegnatoA === null);
@@ -766,9 +775,17 @@ function campiScheda(valori = {}) {
     el('div', { class: 'coppia' },
       campo('telefonoCliente', 'Telefono cliente',
         el('input', { type: 'tel', name: 'telefonoCliente', required: true, autocomplete: 'off', value: valori.telefonoCliente ?? '' })),
-      campo('prezzoConcordato', 'Prezzo concordato con il cliente',
+      // Il prezzo spesso si concorda dopo aver visto l'impianto: lasciarlo
+      // vuoto è normale, e vale zero finché non lo si scrive.
+      campo('prezzoConcordato', 'Prezzo concordato',
         el('span', { class: 'con-euro' },
-          el('input', { type: 'text', name: 'prezzoConcordato', required: true, inputmode: 'decimal', autocomplete: 'off', value: valori.prezzoConcordato ?? '' }))),
+          el('input', {
+            type: 'text', name: 'prezzoConcordato', inputmode: 'decimal', autocomplete: 'off',
+            placeholder: 'Da concordare',
+            // Riaprendo una scheda senza prezzo la casella resta vuota, non
+            // con uno "0,00" da cancellare a mano.
+            value: valori.prezzoCentesimi ? valori.prezzoConcordato : '',
+          }))),
     ),
 
     el('div', { class: 'coppia' },
@@ -936,7 +953,7 @@ async function apriScheda(id, nodo) {
         el('a', { href: appuntamento.mappa, rel: 'noopener', target: '_blank', class: 'come-link', testo: 'apri in mappa' }),
       )),
       riga('Telefono cliente', el('a', { href: `tel:${appuntamento.telefonoPerChiamata}`, testo: appuntamento.telefonoCliente })),
-      riga('Prezzo concordato', `€ ${appuntamento.prezzoConcordato}`),
+      riga('Prezzo concordato', prezzoScritto(appuntamento)),
       riga('Note', appuntamento.note || '—'),
     ),
     posso ? el('button', {
@@ -1544,7 +1561,7 @@ function vistaDettaglio(appuntamento) {
       el('a', { class: 'mappa', href: appuntamento.mappa, rel: 'noopener', target: '_blank' },
         el('span', { icona: 'posizione', 'aria-hidden': 'true' }), 'Apri in mappa'),
 
-      riquadro('Prezzo concordato', `€ ${appuntamento.prezzoConcordato}`, true),
+      riquadro('Prezzo concordato', prezzoScritto(appuntamento), true),
       riquadro('Note', appuntamento.note || '—'),
 
       posso ? el('div', { class: 'separa' }) : null,

@@ -218,8 +218,27 @@ h1, h2, h3 { margin: 0; font-weight: 600; letter-spacing: -0.01em; }
 }
 .con-euro input { padding-left: 1.85rem; }
 
-.coppia { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+/* Due campi affiancati: etichetta, campo, eventuale errore. Le righe sono
+   dichiarate qui perché i due campi le condividano. */
+.coppia {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: auto auto auto;
+  gap: 0 0.75rem;
+}
 .coppia .campo { margin-bottom: 1rem; }
+
+/* Le due etichette possono occupare un numero diverso di righe — basta che
+   una vada a capo — e senza questo il campo sotto scende più in basso del
+   vicino. Con `subgrid` i due campi usano le righe del contenitore, quindi le
+   caselle restano allineate comunque. */
+@supports (grid-template-rows: subgrid) {
+  .coppia .campo {
+    display: grid;
+    grid-row: span 3;
+    grid-template-rows: subgrid;
+  }
+}
 
 .campo .errore-campo,
 .errore-campo {
@@ -1179,7 +1198,10 @@ dialog.conferma .avviso { margin-bottom: 1rem; color: var(--pericolo); }
 }
 
 @media (max-width: 560px) {
+  /* In colonna sola i due campi non devono allinearsi fra loro: si impilano
+     e basta, quindi il subgrid qui non serve. */
   .coppia { grid-template-columns: 1fr; }
+  .coppia .campo { display: block; grid-row: auto; }
   dialog.pannello { width: 100%; }
   .strumenti .titolo-settimana { width: 100%; margin-left: 0; order: -1; }
 }

@@ -164,10 +164,37 @@ describe('scheda cliente', () => {
 
   test('i campi obbligatori sono obbligatori', () => {
     const { errori } = validaAppuntamento({});
-    for (const campo of ['nomeCliente', 'luogoImpianto', 'telefonoCliente', 'prezzoConcordato', 'data', 'ora']) {
+    for (const campo of ['nomeCliente', 'luogoImpianto', 'telefonoCliente', 'data', 'ora']) {
       assert.ok(errori[campo], `manca la segnalazione su ${campo}`);
     }
     assert.ok(!errori.note, 'le note sono facoltative');
+    assert.ok(!errori.prezzoConcordato, 'anche il prezzo è facoltativo');
+  });
+
+  test('il prezzo si può lasciare in bianco, e vale zero', () => {
+    // In negozio Tiziana prende l'appuntamento, ma la cifra si concorda dopo
+    // aver visto l'impianto: obbligare a scrivere un numero vorrebbe dire
+    // scriverne uno finto.
+    for (const vuoto of ['', '   ', undefined, null]) {
+      const { valori, errori } = validaAppuntamento({ ...buona, prezzoConcordato: vuoto });
+      assert.deepEqual(errori, {}, `rifiutato con ${JSON.stringify(vuoto)}`);
+      assert.equal(valori.prezzoCentesimi, 0);
+    }
+  });
+
+  test('ma un importo scritto male resta un errore', () => {
+    // Senza questo, "ottanta" passerebbe per "non concordato" e il lavoro
+    // finirebbe salvato a zero senza che nessuno se ne accorga.
+    assert.ok(validaAppuntamento({ ...buona, prezzoConcordato: 'ottanta' }).errori.prezzoConcordato);
+    assert.ok(validaAppuntamento({ ...buona, prezzoConcordato: '80,999' }).errori.prezzoConcordato);
+    assert.ok(validaAppuntamento({ ...buona, prezzoConcordato: '-10' }).errori.prezzoConcordato);
+  });
+
+  test('un prezzo mandato come numero non si perde per strada', () => {
+    // `prezzoInCentesimi` accetta anche i numeri: la scorciatoia sul vuoto non
+    // deve far passare 80 per "non concordato".
+    assert.equal(validaAppuntamento({ ...buona, prezzoConcordato: 80 }).valori.prezzoCentesimi, 8000);
+    assert.equal(validaAppuntamento({ ...buona, prezzoConcordato: 0 }).valori.prezzoCentesimi, 0);
   });
 
   test('toglie gli spazi intorno ai valori', () => {

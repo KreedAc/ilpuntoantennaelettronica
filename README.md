@@ -322,6 +322,11 @@ lavoro libero. Si crea con una riga di SQL, come gli altri.
 - **Annullare non cancella**: la riga resta con `stato = 'annullato'`, ma sparisce
   da tutte le viste. La fascia torna libera.
 - Il prezzo è salvato **in centesimi**, come numero intero: niente arrotondamenti.
+  Si può **lasciare in bianco** — spesso la cifra si concorda dopo aver visto
+  l'impianto — e allora vale zero, che nella scheda si legge «Da concordare»
+  invece che «€ 0,00». Un importo *scritto male* resta però un errore: senza
+  quella distinzione «ottanta» passerebbe per «non concordato» e il lavoro
+  finirebbe salvato a zero senza che nessuno se ne accorga.
 
 ### Sicurezza
 

@@ -106,9 +106,19 @@ export function validaAppuntamento(corpo, { richiediTutto = true } = {}) {
   }
   valori.telefonoCliente = telefonoCliente;
 
-  const centesimi = prezzoInCentesimi(corpo?.prezzoConcordato);
-  if (centesimi === null) errori.prezzoConcordato = 'Importo non valido';
-  else valori.prezzoCentesimi = centesimi;
+  // Il prezzo non è obbligatorio: spesso si concorda dopo aver visto
+  // l'impianto. Vuoto vale zero; un importo scritto male resta un errore,
+  // altrimenti una cifra sbagliata passerebbe per "non concordato".
+  const grezzoPrezzo = corpo?.prezzoConcordato;
+  const senzaPrezzo = grezzoPrezzo === undefined || grezzoPrezzo === null ||
+    (typeof grezzoPrezzo === 'string' && grezzoPrezzo.trim() === '');
+  if (senzaPrezzo) {
+    valori.prezzoCentesimi = 0;
+  } else {
+    const centesimi = prezzoInCentesimi(corpo?.prezzoConcordato);
+    if (centesimi === null) errori.prezzoConcordato = 'Importo non valido';
+    else valori.prezzoCentesimi = centesimi;
+  }
 
   const data = testo(corpo?.data);
   if (!data) errori.data = 'Campo obbligatorio';
