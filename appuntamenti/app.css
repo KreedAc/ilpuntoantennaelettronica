@@ -1194,3 +1194,51 @@ dialog.conferma .bottoni .pulsante { flex: 1; }
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
+
+/* ------------------------------------------------------------------ */
+/* Avviso di versione aggiornata                                       */
+/* ------------------------------------------------------------------ */
+/* Compare in basso quando il pannello e' rimasto aperto mentre usciva un
+   aggiornamento. Non blocca niente: si puo' continuare a lavorare e
+   ricaricare con calma. */
+
+.barra-aggiornamento {
+  position: fixed;
+  left: 50%;
+  bottom: 1rem;
+  transform: translateX(-50%);
+  z-index: 150;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: min(34rem, calc(100vw - 2rem));
+  padding: 0.7rem 0.8rem 0.7rem 1rem;
+  border: 1px solid var(--linea);
+  border-radius: 14px;
+  background: var(--superficie);
+  box-shadow: 0 10px 30px rgba(23, 25, 51, 0.18);
+}
+.barra-aggiornamento .testo { flex: 1; font-size: 14px; }
+.barra-aggiornamento .pulsante { min-height: 40px; }
+.barra-aggiornamento .pulsante.icona { width: 40px; min-width: 40px; border: 0; }
+
+@media (prefers-reduced-motion: no-preference) {
+  .barra-aggiornamento { animation: sale 0.2s ease-out; }
+  @keyframes sale { from { transform: translate(-50%, 1rem); opacity: 0; } }
+}
+
+/* Nelle colonne divise l'etichetta diventa un segno tondo: ci sta in
+   qualunque larghezza, e resta un carattere leggibile e non il solo colore. */
+.blocco.compattissimo .segno-urgente,
+.blocco.compattissimo .segno-fatto {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  font-size: 10px;
+  line-height: 1;
+}
+.blocco.compattissimo .segno-urgente { background: var(--urgente-etichetta); color: #fff; }
+.blocco.compattissimo .segno-fatto { background: var(--fatto); color: #fff; }

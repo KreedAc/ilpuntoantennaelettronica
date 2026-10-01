@@ -34,6 +34,20 @@ export const FINESTRA_TENTATIVI_MINUTI = 15;
 export const COOKIE_SESSIONE = 'pa_sessione';
 
 /**
+ * Versione del pannello. Va tenuta uguale al `?v=` di appuntamenti/index.html
+ * — c'è una prova in `npm test` che si accorge se le due si scollano.
+ *
+ * Serve a dire a un pannello rimasto aperto che ne è uscita una versione
+ * nuova. Su Netlify, se la variabile COMMIT_REF è disponibile a runtime,
+ * quella è ancora meglio: cambia da sola a ogni pubblicazione e non si può
+ * dimenticare di aggiornarla.
+ */
+export const VERSIONE_PANNELLO = '10';
+
+export const versioneInLinea = () =>
+  process.env.COMMIT_REF || process.env.DEPLOY_ID || VERSIONE_PANNELLO;
+
+/**
  * Elenco ordinato delle fasce ammesse, es. ['08:00', '08:30', …, '19:30'].
  * Calcolato una volta sola all'avvio della funzione.
  */

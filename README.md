@@ -301,10 +301,39 @@ accesso in 15 minuti per IP e per email; `Origin` verificato su ogni scrittura;
 `no-store` e `noindex` su `/appuntamenti/*` e `/api/*`; `Disallow` in `robots.txt`.
 Il service worker **non mette niente in cache**, di proposito.
 
+### Aggiornamenti e PWA
+
+Il pannello **non mette niente in cache**: il service worker serve solo a
+ricevere le notifiche, e `netlify.toml` manda `no-store` su tutto
+`/appuntamenti/*`. Riaprendolo si prende sempre l'ultima versione, anche
+installato sulla schermata Home. L'avevo fatto per non lasciare dati dei
+clienti sul telefono; il risultato è che gli aggiornamenti arrivano sempre.
+
+Resta un caso: una pagina **lasciata aperta** mentre esce una versione nuova
+continua a girare con il codice vecchio. `GET /api/configurazione` riporta
+quindi una `versione`, e il pannello confronta quella vista all'avvio con
+quella attuale — al ritorno in primo piano e ogni quarto d'ora. Se è cambiata
+compare in basso una striscia *"È uscita una versione aggiornata"* con
+**Ricarica**; rifiutandola non si ripresenta finché la pagina resta aperta.
+
+La versione viene da `COMMIT_REF` se Netlify la espone a runtime, altrimenti
+da `VERSIONE_PANNELLO` in `netlify/lib/configurazione.mjs`, **che va tenuta
+uguale al `?v=` di `appuntamenti/index.html`**. Una prova in `npm test`
+fallisce se le due si scollano, perché altrimenti l'avviso non comparirebbe
+mai e nessuno se ne accorgerebbe.
+
+Due cose che gli aggiornamenti **non** sistemano:
+
+- su Android, nome e icona dell'app installata sono fotografati all'installazione
+  e Chrome ci mette giorni ad accorgersi di un cambio del manifest; il contenuto
+  no, quello è sempre aggiornato
+- su iPhone l'app aggiunta alla Home ha **memoria propria**, separata da Safari:
+  accesso e notifiche vanno rifatti dentro l'app
+
 ### Prove
 
 ```bash
-npm test     # 25 prove sulla logica: fasce, prezzi, date, password, validazione
+npm test     # 30 prove sulla logica: fasce, prezzi, date, password, validazione, versione
 ```
 
 L'interfaccia è stata verificata in un browser vero (Chromium, 1280 px e 390 px)

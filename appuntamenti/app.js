@@ -438,9 +438,19 @@ function blocco(appuntamento, { conIniziale = false, compatto = false, onClick }
           })
         : null,
       el('span', { class: 'quando-chi', testo: `${appuntamento.ora} ${appuntamento.nomeCliente}` }),
-      appuntamento.fatto ? el('span', { class: 'segno-fatto', testo: 'Fatto' }) : null,
+      appuntamento.fatto
+        ? el('span', { class: 'segno-fatto', testo: compatto ? '✓' : 'Fatto', title: 'Fatto' })
+        : null,
+      // Nella settimana a colonne divise lo spazio è pochissimo: scrivendo
+      // "Urgente" per esteso resterebbe "1… URGENTE" e il nome del cliente
+      // sparirebbe. Il punto esclamativo è comunque un segno leggibile, non
+      // il solo colore, e la legenda in alto spiega l'ambra.
       appuntamento.urgente && !appuntamento.fatto
-        ? el('span', { class: 'segno-urgente', testo: 'Urgente' }) : null,
+        ? el('span', {
+            class: 'segno-urgente', title: 'Urgente', 'aria-label': 'Urgente',
+            testo: compatto ? '!' : 'Urgente',
+          })
+        : null,
     ),
     el('span', {
       class: 'seconda',
@@ -1834,10 +1844,62 @@ async function disegna() {
 }
 
 // ---------------------------------------------------------------------------
+// Versione pubblicata
+// ---------------------------------------------------------------------------
+// Il pannello non mette niente in cache, quindi riaprendolo si prende sempre
+// l'ultima versione. Resta un caso: una pagina lasciata aperta mentre esce un
+// aggiornamento continua a girare con il codice vecchio, e se nel frattempo è
+// cambiato il modo di parlare con il server potrebbe dare errori incomprensibili.
+//
+// Qui non si confronta nessun numero scritto nel codice: si guarda solo se il
+// valore riportato dal server è diverso da quello visto all'avvio.
+
+let versioneIniziale = null;
+let avvisoVersioneRifiutato = false;
+
+async function controllaVersione() {
+  if (!versioneIniziale || avvisoVersioneRifiutato) return;
+  if (document.querySelector('.barra-aggiornamento')) return;
+  try {
+    const { versione } = await api('/configurazione');
+    if (versione && versione !== versioneIniziale) mostraAggiornamento();
+  } catch {
+    // Senza rete non c'è niente da aggiornare: si riprova al prossimo giro.
+  }
+}
+
+function mostraAggiornamento() {
+  const chiudi = el('button', {
+    class: 'pulsante icona', type: 'button', icona: 'chiudi',
+    'aria-label': 'Per ora no',
+  });
+  const barra = el('div', { class: 'barra-aggiornamento', role: 'status' },
+    el('span', { class: 'testo', testo: 'È uscita una versione aggiornata del pannello.' }),
+    el('button', {
+      class: 'pulsante primario', type: 'button', testo: 'Ricarica',
+      onclick: () => location.reload(),
+    }),
+    chiudi,
+  );
+  // Rifiutando non si ripresenta più finché la pagina resta aperta: un avviso
+  // che torna ogni dieci minuti è peggio del problema che risolve.
+  chiudi.addEventListener('click', () => { avvisoVersioneRifiutato = true; barra.remove(); });
+  document.body.append(barra);
+}
+
+// ---------------------------------------------------------------------------
 // Avvio
 // ---------------------------------------------------------------------------
 
 window.addEventListener('popstate', () => disegna());
+
+// Si controlla quando l'app torna in primo piano — il momento in cui
+// l'installatore la riapre dalla notifica — e ogni quarto d'ora se resta
+// aperta sulla scrivania di Tiziana.
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') controllaVersione();
+});
+setInterval(controllaVersione, 15 * 60 * 1000);
 
 // Ridimensionando la finestra basta ricalcolare l'altezza della fascia:
 // non serve ridisegnare l'agenda né richiedere di nuovo i dati.
@@ -1850,6 +1912,7 @@ window.addEventListener('resize', () => {
 async function avvia() {
   try {
     stato.config = await api('/configurazione');
+    versioneIniziale = stato.config.versione ?? null;
   } catch (e) {
     sostituisci(schermataStato(e.message, { errore: true, riprova: () => avvia() }));
     return;

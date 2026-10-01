@@ -22,7 +22,7 @@ import { verifica, cifra, bruciaTempo, LUNGHEZZA_MINIMA } from '../lib/password.
 import { avvisa, chiavePubblica, conNotificheAttive } from '../lib/push.mjs';
 import {
   FASCE, ORA_INIZIO, ORA_FINE, PASSO_MINUTI,
-  TENTATIVI_MASSIMI, FINESTRA_TENTATIVI_MINUTI,
+  TENTATIVI_MASSIMI, FINESTRA_TENTATIVI_MINUTI, versioneInLinea,
 } from '../lib/configurazione.mjs';
 import {
   validaAppuntamento, validaSpostamento,
@@ -736,6 +736,7 @@ export default async (req) => {
         oraFine: ORA_FINE,
         passoMinuti: PASSO_MINUTI,
         chiavePush: chiavePubblica(),
+        versione: versioneInLinea(),
       });
     }
 

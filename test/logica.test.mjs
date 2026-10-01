@@ -9,7 +9,7 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { FASCE, fasciaValida, GIORNI_LAVORATIVI } from '../netlify/lib/configurazione.mjs';
+import { FASCE, fasciaValida, GIORNI_LAVORATIVI, VERSIONE_PANNELLO } from '../netlify/lib/configurazione.mjs';
 import {
   prezzoInCentesimi, centesimiInPrezzo, dataValida, normalizzaOra,
   telefonoPerChiamata, validaAppuntamento, validaSpostamento,
@@ -190,6 +190,25 @@ describe('scheda cliente', () => {
     assert.deepEqual(validaSpostamento({ data: '2026-09-22', ora: '15:30' }).errori, {});
     assert.ok(validaSpostamento({ data: '2026-09-22', ora: '15:20' }).errori.ora);
     assert.ok(validaSpostamento({ data: 'domani', ora: '15:30' }).errori.data);
+  });
+});
+
+describe('versione del pannello', () => {
+  test('il numero nel codice e quello nelle pagine non si scollano', async () => {
+    // Il pannello avvisa chi l'ha lasciato aperto quando esce una versione
+    // nuova, confrontando quello che dice il server. Se il numero in
+    // configurazione.mjs restasse indietro rispetto al `?v=` di index.html,
+    // l'avviso non comparirebbe mai e non se ne accorgerebbe nessuno.
+    const { readFile } = await import('node:fs/promises');
+    const pagina = await readFile(new URL('../appuntamenti/index.html', import.meta.url), 'utf8');
+
+    const nelleRisorse = [...pagina.matchAll(/app\.(?:css|js)\?v=(\d+)/g)].map((m) => m[1]);
+    assert.ok(nelleRisorse.length >= 2, 'in index.html mancano i parametri di versione');
+    assert.equal(new Set(nelleRisorse).size, 1, `versioni diverse fra css e js: ${nelleRisorse.join(', ')}`);
+    assert.equal(
+      VERSIONE_PANNELLO, nelleRisorse[0],
+      `configurazione.mjs dice ${VERSIONE_PANNELLO}, index.html dice ${nelleRisorse[0]}`,
+    );
   });
 });
 
