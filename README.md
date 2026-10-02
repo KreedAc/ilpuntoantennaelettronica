@@ -297,6 +297,18 @@ finisce lì; se è diverso, il pannello si riprende gli appuntamenti e ridisegna
 nessuno, e una barra che compare da sé a ogni salvataggio di un tecnico
 sarebbe peggio del problema.
 
+**Il giro automatico riguarda solo la dashboard, e solo quando serve.** Parte
+per l'amministratore, nei giorni lavorativi e fra `DIRETTA_DALLE` e
+`DIRETTA_ALLE` (`netlify/lib/configurazione.mjs`, oggi 09:00–20:00): fuori da
+lì davanti allo schermo non c'è nessuno. Sul telefono del tecnico non parte
+affatto — la sua agenda si aggiorna già quando è lui a muovere qualcosa — e
+bussare ogni venti secondi sarebbe batteria e dati consumati per niente.
+
+Resta invece sempre attivo, per tutti e a qualsiasi ora, il controllo di
+**quando si torna sulla scheda o si riapre l'app**: costa una richiesta sola,
+ed è il momento in cui il tecnico vede quello che nel frattempo gli è stato
+assegnato.
+
 Non sono notifiche in tempo reale, ed è una scelta: Netlify non tiene
 connessioni aperte, e tenerne una viva tutto il giorno costerebbe molto più di
 una domanda ogni venti secondi.

@@ -23,7 +23,8 @@ import { avvisa, chiavePubblica, conNotificheAttive } from '../lib/push.mjs';
 import { titoliCambioTecnico } from '../lib/avvisi.mjs';
 import { segnaCambiamento, leggiBattito } from '../lib/battito.mjs';
 import {
-  FASCE, ORA_INIZIO, ORA_FINE, PASSO_MINUTI,
+  FASCE, ORA_INIZIO, ORA_FINE, PASSO_MINUTI, GIORNI_LAVORATIVI,
+  DIRETTA_DALLE, DIRETTA_ALLE,
   TENTATIVI_MASSIMI, FINESTRA_TENTATIVI_MINUTI, versioneInLinea,
 } from '../lib/configurazione.mjs';
 import {
@@ -816,6 +817,10 @@ async function instrada(req, url, percorso, metodo) {
       oraInizio: ORA_INIZIO,
       oraFine: ORA_FINE,
       passoMinuti: PASSO_MINUTI,
+      // Quando la dashboard si tiene aggiornata da sola. Sta qui e non nel
+      // codice del pannello per lo stesso motivo delle fasce: un orario si
+      // cambia in un posto solo.
+      diretta: { dalle: DIRETTA_DALLE, alle: DIRETTA_ALLE, giorni: GIORNI_LAVORATIVI },
       chiavePush: chiavePubblica(),
       versione: versioneInLinea(),
     });

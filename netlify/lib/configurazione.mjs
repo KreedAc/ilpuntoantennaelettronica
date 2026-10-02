@@ -20,6 +20,20 @@ export const PASSO_MINUTI = 30;
  */
 export const GIORNI_LAVORATIVI = [1, 2, 3, 4, 5, 6];
 
+/**
+ * Quando la dashboard di Tiziana si tiene aggiornata da sola.
+ *
+ * Fuori da questa finestra il controllo periodico non parte: in negozio non
+ * c'è nessuno davanti allo schermo, e una domanda ogni venti secondi per
+ * tutta la notte sarebbe lavoro buttato. Riaprendo la scheda il pannello si
+ * riallinea comunque, a qualsiasi ora.
+ *
+ * Gli orari sono quelli dell'orologio di chi guarda, cioè l'ora italiana sul
+ * computer del negozio. I giorni seguono GIORNI_LAVORATIVI.
+ */
+export const DIRETTA_DALLE = '09:00';
+export const DIRETTA_ALLE = '20:00';
+
 /** Tutte le date e le ore sono intese in questo fuso. */
 export const FUSO = 'Europe/Rome';
 
@@ -42,7 +56,7 @@ export const COOKIE_SESSIONE = 'pa_sessione';
  * quella è ancora meglio: cambia da sola a ogni pubblicazione e non si può
  * dimenticare di aggiornarla.
  */
-export const VERSIONE_PANNELLO = '14';
+export const VERSIONE_PANNELLO = '15';
 
 export const versioneInLinea = () =>
   process.env.COMMIT_REF || process.env.DEPLOY_ID || VERSIONE_PANNELLO;

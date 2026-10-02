@@ -2000,6 +2000,12 @@ async function disegna({ silenzioso = false } = {}) {
 // Non sono notifiche in tempo reale: Netlify non tiene connessioni aperte, e
 // tenerne una aperta tutto il giorno costerebbe molto di più di una domanda
 // ogni venti secondi.
+//
+// Il giro automatico riguarda solo la dashboard di Tiziana, e solo nelle ore
+// in cui è in postazione (vedi DIRETTA_DALLE in lib/configurazione.mjs). Il
+// telefono del tecnico non ne ha bisogno: la sua agenda si aggiorna già
+// quando è lui a muovere qualcosa, e il controllo di quando riapre l'app
+// basta a mostrargli quello che nel frattempo gli è stato assegnato.
 
 const OGNI_QUANTO = 20 * 1000;
 
@@ -2016,11 +2022,45 @@ let battitoSpento = false;
 /** Le viste che ha senso rinfrescare da sole: quelle che mostrano l'agenda. */
 const VISTE_DAL_VIVO = ['giorno', 'agenda', 'settimana', 'tutti', 'daassegnare'];
 
-async function controllaBattito() {
+/** I minuti dall'inizio della giornata, da una stringa "HH:MM". */
+const inMinuti = (ora) => {
+  const [h, m] = String(ora).split(':').map(Number);
+  return h * 60 + m;
+};
+
+/**
+ * Siamo nelle ore in cui Tiziana è in postazione?
+ *
+ * Si guarda l'orologio del computer, che in negozio è quello italiano. Senza
+ * indicazioni dal server si controlla sempre: meglio un pannello aggiornato
+ * che uno fermo per una configurazione che non è arrivata.
+ */
+function dentroLOrario() {
+  const quando = stato.config?.diretta;
+  if (!quando) return true;
+  const adesso = new Date();
+  const giorno = adesso.getDay() === 0 ? 7 : adesso.getDay();   // domenica = 7
+  if (!quando.giorni.includes(giorno)) return false;
+  const minuti = adesso.getHours() * 60 + adesso.getMinutes();
+  return minuti >= inMinuti(quando.dalle) && minuti < inMinuti(quando.alle);
+}
+
+/**
+ * @param {boolean} periodico  true se è il giro automatico ogni venti secondi,
+ *   false se è il controllo una tantum di quando si torna sulla scheda. Il
+ *   secondo non ha né orari né ruoli: costa una richiesta sola, e serve a
+ *   chiunque riapra il pannello.
+ */
+async function controllaBattito({ periodico = false } = {}) {
   if (battitoSpento || battitoInCorso) return;
   if (!stato.utente || stato.utente.deveCambiarePassword) return;
   if (document.visibilityState !== 'visible') return;
   if (!VISTE_DAL_VIVO.includes(rotta().vista)) return;
+  // Il giro automatico serve solo alla dashboard in negozio. Sul telefono del
+  // tecnico l'agenda si aggiorna già quando è lui a muovere qualcosa, e
+  // quando riapre l'app: bussare ogni venti secondi sarebbe batteria e dati
+  // consumati per niente.
+  if (periodico && (!eAdmin() || !dentroLOrario())) return;
   // Mentre una finestra è aperta non si ridisegna niente sotto le mani di chi
   // sta scrivendo. Non si prende nemmeno nota del battito nuovo: così appena
   // la chiude, al giro dopo, l'aggiornamento arriva.
@@ -2096,10 +2136,10 @@ window.addEventListener('popstate', () => disegna());
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState !== 'visible') return;
   controllaVersione();
-  controllaBattito();   // tornando sulla scheda si riallinea subito
+  controllaBattito();   // tornando sulla scheda si riallinea subito, a ogni ora
 });
 setInterval(controllaVersione, 15 * 60 * 1000);
-setInterval(controllaBattito, OGNI_QUANTO);
+setInterval(() => controllaBattito({ periodico: true }), OGNI_QUANTO);
 
 // Ridimensionando la finestra basta ricalcolare l'altezza della fascia:
 // non serve ridisegnare l'agenda né richiedere di nuovo i dati.
