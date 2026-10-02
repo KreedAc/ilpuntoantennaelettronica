@@ -87,3 +87,47 @@ export function intervalloSettimana(lunediISO) {
   return `${a.getUTCDate()} ${MESI[a.getUTCMonth()]} ${a.getUTCFullYear()} – ` +
          `${b.getUTCDate()} ${MESI[b.getUTCMonth()]} ${b.getUTCFullYear()}`;
 }
+
+// ---------------------------------------------------------------------------
+// Mesi
+// ---------------------------------------------------------------------------
+// Servono allo storico, che si sfoglia un mese alla volta. Stesse regole delle
+// date: stringhe e conti in UTC, così il cambio dell'ora legale non sposta mai
+// il primo né l'ultimo giorno.
+
+const MESI_ESTESI = ['gennaio', 'febbraio', 'marzo', 'aprile', 'maggio', 'giugno',
+                     'luglio', 'agosto', 'settembre', 'ottobre', 'novembre', 'dicembre'];
+
+/** Il mese come "AAAA-MM" è scritto bene? */
+export function meseValido(mese) {
+  if (typeof mese !== 'string' || !/^\d{4}-(0[1-9]|1[0-2])$/.test(mese)) return false;
+  const anno = Number(mese.slice(0, 4));
+  return anno >= 2000 && anno <= 2100;
+}
+
+/** Il mese di una data "AAAA-MM-GG". */
+export const meseDi = (dataISO) => dataISO.slice(0, 7);
+
+/**
+ * Primo e ultimo giorno del mese, come "AAAA-MM-GG".
+ * Il giorno 0 del mese successivo è l'ultimo di questo: vale anche a febbraio
+ * e negli anni bisestili, senza doverli contare a mano.
+ */
+export function intervalloMese(mese) {
+  const [anno, m] = mese.split('-').map(Number);
+  const ultimo = new Date(Date.UTC(anno, m, 0)).getUTCDate();
+  return { dal: `${mese}-01`, al: `${mese}-${String(ultimo).padStart(2, '0')}` };
+}
+
+/** Il mese spostato di `quanti` (negativo per andare indietro). */
+export function piuMesi(mese, quanti) {
+  const [anno, m] = mese.split('-').map(Number);
+  const d = new Date(Date.UTC(anno, m - 1 + quanti, 1));
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+}
+
+/** Il mese per esteso, es. "settembre 2026". */
+export function meseEsteso(mese) {
+  const [anno, m] = mese.split('-').map(Number);
+  return `${MESI_ESTESI[m - 1]} ${anno}`;
+}

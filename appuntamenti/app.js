@@ -103,6 +103,24 @@ function intervalloSettimana(inizio) {
 
 const maiuscola = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 
+// Mesi: stesse regole delle date, conti in UTC su stringhe "AAAA-MM".
+const meseDi = (iso) => iso.slice(0, 7);
+
+function piuMesi(mese, quanti) {
+  const [anno, m] = mese.split('-').map(Number);
+  const d = new Date(Date.UTC(anno, m - 1 + quanti, 1));
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+}
+
+function meseEsteso(mese) {
+  const [anno, m] = mese.split('-').map(Number);
+  return `${MESI[m - 1]} ${anno}`;
+}
+
+/** Centesimi in euro scritti all'italiana, es. 318000 → "3.180,00". */
+const inEuro = (centesimi) => (centesimi / 100)
+  .toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
 // ---------------------------------------------------------------------------
 // Rete
 // ---------------------------------------------------------------------------
@@ -144,6 +162,7 @@ const stato = {
   utenti: [],
   appuntamenti: [],
   daAssegnare: 0,
+  storico: null,
   disegnoCorrente: 0,
   // Stato delle notifiche su questo dispositivo, riletto a ogni avvio:
   // 'attive' | 'spente' | 'negate' | 'da-installare' | 'non-supportate' | 'non-configurate'.
@@ -202,6 +221,8 @@ function rotta() {
     giorno: p.get('giorno'),
     id: p.get('id'),
     chi: p.get('chi'),
+    mese: p.get('mese'),
+    cerca: p.get('cerca'),
   };
 }
 
@@ -437,6 +458,7 @@ function sceltaVista(attiva, riferimento) {
   return el('div', { class: 'scelta-vista' },
     bottone('Giorno', 'giorno', { vista: 'giorno', giorno: riferimento.giorno }),
     bottone('Settimana', 'settimana', { vista: 'agenda', settimana: riferimento.settimana, chi: 'tutti' }),
+    bottone('Storico', 'storico', { vista: 'storico' }),
   );
 }
 
@@ -728,6 +750,179 @@ function vistaSettimanaAdmin(inizioSettimana, chi) {
 function giornoDaAprire(inizioSettimana) {
   const adesso = oggi();
   return adesso >= inizioSettimana && adesso <= piuGiorni(inizioSettimana, 5) ? adesso : inizioSettimana;
+}
+
+// ---------------------------------------------------------------------------
+// Amministratore — Storico
+// ---------------------------------------------------------------------------
+// Fino a ieri un intervento chiuso spariva dalla vista appena si cambiava
+// giorno. Qui si ritrova: cosa è stato fatto, da chi, per quanto — e cosa
+// invece è rimasto indietro.
+
+/** "mer 30 set" — basta a orientarsi senza occupare mezza riga. */
+function dataBreve(iso) {
+  const d = aUTC(iso);
+  return `${SIGLE[giornoSettimana(iso) - 1].toLowerCase()} ${d.getUTCDate()} ${MESI[d.getUTCMonth()].slice(0, 3)}`;
+}
+
+/** Una riga dello storico. Cliccandola si apre la stessa scheda dell'agenda. */
+function voceStorico(a, { conData = false } = {}) {
+  const riga = el('li', { class: `voce storica${a.fatto ? ' conclusa' : ' sospesa'}` });
+  const apri = el('button', { class: 'apri', type: 'button' },
+    el('span', { class: 'chi', testo: a.nomeCliente }),
+    el('span', { class: 'dove' },
+      el('span', { icona: 'posizione', 'aria-hidden': 'true' }),
+      el('span', { testo: a.luogoImpianto }),
+    ),
+    el('span', { class: 'di-chi' },
+      el('span', { class: 'pallino', style: `background:${coloreDi(a.assegnatoA)}` }),
+      a.assegnatoNome ?? 'Da assegnare',
+    ),
+  );
+  apri.addEventListener('click', () => apriScheda(a.id, riga));
+
+  riga.append(
+    el('span', { class: 'quando' },
+      conData ? el('span', { class: 'giorno', testo: dataBreve(a.data) }) : null,
+      el('span', { class: 'ora', testo: a.ora }),
+    ),
+    apri,
+    el('span', { class: 'quanto' },
+      el('span', { class: 'cifra', testo: prezzoScritto(a) }),
+      a.fatto
+        ? el('span', { class: 'chiuso', testo: `chiuso alle ${a.fattoAlle}` })
+        : el('span', { class: 'aperto', testo: 'mai chiuso' }),
+    ),
+  );
+  return riga;
+}
+
+/** Raggruppa per giorno, dal più recente. */
+function perGiorni(elenco) {
+  const giorni = [...new Set(elenco.map((a) => a.data))];
+  return giorni.map((giorno) => el('section', { class: 'giorno-storico' },
+    el('h2', {}, maiuscola(dataEstesa(giorno))),
+    el('ul', { class: 'elenco' }, elenco.filter((a) => a.data === giorno).map((a) => voceStorico(a))),
+  ));
+}
+
+function vistaStorico({ mese, chi, cerca }) {
+  const dati = stato.storico ?? {};
+  const soloDi = (elenco) => (chi && chi !== 'tutti'
+    ? elenco.filter((a) => String(a.assegnatoA) === String(chi))
+    : elenco);
+
+  const fatti = soloDi(cerca ? (dati.trovati ?? []) : (dati.fatti ?? []));
+  const sospesi = cerca ? [] : soloDi(dati.sospesi ?? []);
+  const incassato = fatti.reduce((somma, a) => somma + a.prezzoCentesimi, 0);
+
+  // --- ricerca ------------------------------------------------------------
+  const campo = el('input', {
+    type: 'search', name: 'cerca', autocomplete: 'off',
+    placeholder: 'Cerca un cliente o un indirizzo…',
+    'aria-label': 'Cerca nello storico',
+    value: cerca ?? '',
+  });
+  const ricerca = el('form', {
+    class: 'cerca-storico', role: 'search',
+    onsubmit: (e) => {
+      e.preventDefault();
+      const testo = campo.value.trim();
+      vai(testo ? { vista: 'storico', cerca: testo, chi } : { vista: 'storico', mese, chi });
+    },
+  },
+    campo,
+    el('button', { class: 'pulsante', type: 'submit', testo: 'Cerca' }),
+    cerca
+      ? el('button', {
+          class: 'pulsante', type: 'button', testo: 'Annulla',
+          onclick: () => vai({ vista: 'storico', mese, chi }),
+        })
+      : null,
+  );
+
+  // --- barra degli strumenti ----------------------------------------------
+  const vaiAlMese = (quale) => vai({ vista: 'storico', mese: quale, chi });
+  const strumenti = el('div', { class: 'strumenti' },
+    sceltaVista('storico', { giorno: oggi(), settimana: lunedi(oggi()) }),
+    cerca ? null : el('button', {
+      class: 'pulsante icona', type: 'button', icona: 'sinistra',
+      'aria-label': 'Mese precedente', onclick: () => vaiAlMese(piuMesi(mese, -1)),
+    }),
+    cerca ? null : el('button', {
+      class: 'pulsante icona', type: 'button', icona: 'destra',
+      'aria-label': 'Mese successivo', onclick: () => vaiAlMese(piuMesi(mese, 1)),
+    }),
+    cerca ? null : el('button', {
+      class: 'pulsante', type: 'button', testo: 'Questo mese',
+      onclick: () => vaiAlMese(meseDi(oggi())),
+    }),
+    el('h1', {
+      class: 'titolo-settimana',
+      testo: cerca ? `Risultati per «${cerca}»` : maiuscola(meseEsteso(mese)),
+    }),
+    el('div', { class: 'a-destra' }, ricerca),
+  );
+
+  // --- filtro per tecnico --------------------------------------------------
+  const filtro = (etichetta, valore, colore) => el('button', {
+    class: 'filtro', type: 'button',
+    'aria-pressed': String(chi ?? 'tutti') === valore ? 'true' : 'false',
+    onclick: () => vai(cerca
+      ? { vista: 'storico', cerca, chi: valore }
+      : { vista: 'storico', mese, chi: valore }),
+  },
+    colore ? el('span', { class: 'pallino', style: `background:${colore}` }) : null,
+    etichetta,
+  );
+  const filtri = el('div', { class: 'filtri' },
+    el('span', { class: 'etichetta-filtro', testo: 'Mostra' }),
+    filtro('Tutti', 'tutti', null),
+    ...installatori().map((u) => filtro(u.nome, String(u.id), coloreDi(u.id))),
+  );
+
+  // --- riepilogo -----------------------------------------------------------
+  const riepilogo = el('div', { class: 'riepilogo-storico' },
+    el('span', { class: 'numero', testo: String(fatti.length) }),
+    el('span', { class: 'parola', testo: fatti.length === 1 ? 'intervento' : 'interventi' }),
+    cerca ? null : el('span', { class: 'separatore', 'aria-hidden': 'true' }),
+    cerca ? null : el('span', { class: 'incassato', testo: `€ ${inEuro(incassato)}` }),
+    dati.troncata
+      ? el('span', { class: 'troncata', testo: 'primi 100 — restringi la ricerca per vederne altri' })
+      : null,
+  );
+
+  // --- rimasti indietro ----------------------------------------------------
+  // Non dipendono dal mese aperto, ed è il punto: un lavoro di tre mesi fa che
+  // nessuno ha segnato è proprio quello da non lasciar sparire.
+  const inSospeso = sospesi.length > 0
+    ? el('section', { class: 'sospesi' },
+        el('h2', {},
+          'Passati e mai chiusi',
+          el('span', { class: 'quanti', testo: String(sospesi.length) }),
+        ),
+        el('p', {
+          class: 'spiega',
+          testo: 'Interventi con la data già passata, ancora né fatti né annullati. O sono stati fatti e nessuno l\'ha segnato, o il cliente sta ancora aspettando.',
+        }),
+        el('ul', { class: 'elenco' }, sospesi.map((a) => voceStorico(a, { conData: true }))),
+      )
+    : null;
+
+  // --- elenco --------------------------------------------------------------
+  const elenco = fatti.length === 0
+    ? el('p', {
+        class: 'vuoto',
+        testo: cerca
+          ? `Nessun intervento trovato per «${cerca}».`
+          : 'Nessun intervento chiuso in questo mese.',
+      })
+    : el('div', {}, cerca
+        ? el('ul', { class: 'elenco' }, fatti.map((a) => voceStorico(a, { conData: true })))
+        : perGiorni(fatti));
+
+  return el('div', {}, barraSuperiore(), strumenti,
+    el('div', { class: 'storico' }, filtri, riepilogo, inSospeso, elenco));
 }
 
 // ---------------------------------------------------------------------------
@@ -1900,6 +2095,12 @@ async function disegna({ silenzioso = false } = {}) {
     vai({ vista: 'giorno', giorno: oggi() }, { sostituisci: true });
     return;
   }
+  // Lo storico è roba da ufficio: sul telefono non c'è, e l'API lo rifiuta
+  // comunque anche a chi provasse a scriversi l'indirizzo a mano.
+  if (r.vista === 'storico' && !eAdmin()) {
+    vai(rottaPredefinita(), { sostituisci: true });
+    return;
+  }
 
   // Solo al primissimo ingresso non c'è ancora niente da mostrare: da lì in
   // poi si tiene la vista precedente e si accende la barra. Un aggiornamento
@@ -1937,6 +2138,18 @@ async function disegna({ silenzioso = false } = {}) {
       stato.appuntamenti = dati.appuntamenti;
       if (mio !== stato.disegnoCorrente) return;
       sostituisci(vistaDaAssegnare());
+      return;
+    }
+
+    if (r.vista === 'storico') {
+      const mese = r.mese ?? meseDi(oggi());
+      const domanda = r.cerca
+        ? `cerca=${encodeURIComponent(r.cerca)}`
+        : `mese=${encodeURIComponent(mese)}`;
+      const [dati] = await Promise.all([api(`/storico?${domanda}`), utentiPronti]);
+      stato.storico = dati;
+      if (mio !== stato.disegnoCorrente) return;
+      sostituisci(vistaStorico({ mese, chi: r.chi, cerca: r.cerca }));
       return;
     }
 

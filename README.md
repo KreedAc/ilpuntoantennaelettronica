@@ -341,6 +341,33 @@ non solleva mai: un problema lì vorrebbe dire al massimo che l'aggiornamento
 arriva al cambio di vista, e non è un motivo per far fallire il salvataggio di
 un appuntamento.
 
+### Lo storico
+
+Una terza scheda accanto a Giorno e Settimana, **solo per l'amministratore**:
+prima un intervento chiuso spariva dalla vista appena si cambiava giorno, e
+non c'era modo di ritrovarlo.
+
+- **Un mese alla volta**, con in cima quanti interventi e quanto è stato
+  incassato. Il totale lo calcola il pannello sulle righe che ha a schermo,
+  non il server sul mese intero: filtrando per tecnico, una somma fatta
+  altrove direbbe una cifra che l'elenco sotto non conferma.
+- **Ricerca per cliente o indirizzo** che attraversa **tutto l'archivio**, non
+  il mese aperto — quando si cerca un cliente non si sa in che mese ci si era
+  andati, ed è il motivo per cui la casella esiste. Massimo 100 risultati, e
+  quando sono troncati il pannello lo dice.
+- **«Passati e mai chiusi»**: interventi con la data già passata, ancora né
+  fatti né annullati. Non dipendono dal mese che si sta guardando, ed è il
+  punto: un lavoro di tre mesi fa che nessuno ha segnato è esattamente quello
+  da non lasciar sparire. O è stato fatto e nessuno l'ha chiuso, o il cliente
+  sta ancora aspettando.
+
+Gli **annullati non entrano** nello storico. `GET /api/storico` risponde solo
+all'amministratore (403 agli altri): nascondere una voce nell'interfaccia non
+è una difesa, e c'è una prova che chiama l'indirizzo a mano per verificarlo.
+
+Lo storico **non** è fra le viste che si aggiornano da sole: è un archivio, e
+un ridisegno mentre si legge o si cerca darebbe solo fastidio.
+
 ### L'account di prova
 
 Un utente con `nascosto = true` serve a provare notifiche e schermate senza

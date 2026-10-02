@@ -14,7 +14,10 @@ import {
   prezzoInCentesimi, centesimiInPrezzo, dataValida, normalizzaOra,
   telefonoPerChiamata, validaAppuntamento, validaSpostamento,
 } from '../netlify/lib/validazione.mjs';
-import { piuGiorni, lunedi, giornoSettimana, dataEstesa, intervalloSettimana } from '../netlify/lib/calendario.mjs';
+import {
+  piuGiorni, lunedi, giornoSettimana, dataEstesa, intervalloSettimana,
+  meseValido, meseDi, intervalloMese, piuMesi, meseEsteso,
+} from '../netlify/lib/calendario.mjs';
 import { cifra, verifica } from '../netlify/lib/password.mjs';
 import { comeDire } from '../netlify/functions/promemoria.mjs';
 import { titoliCambioTecnico } from '../netlify/lib/avvisi.mjs';
@@ -302,6 +305,38 @@ describe('passaggio di un lavoro da un tecnico all\'altro', () => {
       'chi lo riceve va avvisato comunque: la funzione si chiama solo quando cambia',
     );
     assert.deepEqual(titoliCambioTecnico({}), [], 'senza nessuno dei due non c\'e\' niente da dire');
+  });
+});
+
+describe('mesi dello storico', () => {
+  test('il primo e l\'ultimo giorno del mese, febbraio compreso', () => {
+    assert.deepEqual(intervalloMese('2026-02'), { dal: '2026-02-01', al: '2026-02-28' });
+    assert.deepEqual(intervalloMese('2024-02'), { dal: '2024-02-01', al: '2024-02-29' },
+      'anno bisestile sbagliato');
+    assert.deepEqual(intervalloMese('2026-12'), { dal: '2026-12-01', al: '2026-12-31' });
+    assert.deepEqual(intervalloMese('2026-04'), { dal: '2026-04-01', al: '2026-04-30' });
+  });
+
+  test('sfogliare i mesi scavalca l\'anno', () => {
+    assert.equal(piuMesi('2026-01', -1), '2025-12');
+    assert.equal(piuMesi('2026-12', 1), '2027-01');
+    assert.equal(piuMesi('2026-03', -14), '2025-01');
+  });
+
+  test('accetta solo i mesi scritti bene', () => {
+    assert.ok(meseValido('2026-09'));
+    assert.ok(!meseValido('2026-13'), 'tredicesimo mese');
+    assert.ok(!meseValido('2026-00'), 'mese zero');
+    assert.ok(!meseValido('26-9'), 'anno a due cifre');
+    assert.ok(!meseValido('2026-09-30'), 'una data non e\' un mese');
+    assert.ok(!meseValido(''), 'vuoto');
+    assert.ok(!meseValido(null), 'niente');
+  });
+
+  test('il mese di una data, e come si scrive', () => {
+    assert.equal(meseDi('2026-09-30'), '2026-09');
+    assert.equal(meseEsteso('2026-09'), 'settembre 2026');
+    assert.equal(meseEsteso('2026-01'), 'gennaio 2026');
   });
 });
 

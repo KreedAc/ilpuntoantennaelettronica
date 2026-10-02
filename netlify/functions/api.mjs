@@ -31,7 +31,7 @@ import {
   validaAppuntamento, validaSpostamento,
   centesimiInPrezzo, telefonoPerChiamata, dataValida,
 } from '../lib/validazione.mjs';
-import { dataEstesa } from '../lib/calendario.mjs';
+import { dataEstesa, oggi, meseValido, intervalloMese } from '../lib/calendario.mjs';
 
 // ---------------------------------------------------------------------------
 // Risposte
@@ -488,6 +488,81 @@ async function assegnatarioRichiesto(corpo, utente) {
   return { id };
 }
 
+// ---------------------------------------------------------------------------
+// Storico
+// ---------------------------------------------------------------------------
+
+/** Non si restituisce mai mezzo archivio in un colpo solo. */
+const MAX_RICERCA = 100;
+const MAX_SOSPESI = 200;
+
+/**
+ * Lo storico del mese, più i conti e i lavori rimasti indietro.
+ *
+ * I "sospesi" non c'entrano con il mese scelto, ed è apposta: un intervento di
+ * tre mesi fa che nessuno ha segnato né fatto né annullato è esattamente
+ * quello che non deve sparire dalla vista, qualunque mese si stia guardando.
+ */
+async function getStorico(url) {
+  const cerca = (url.searchParams.get('cerca') ?? '').trim();
+  if (cerca) return await cercaNelloStorico(cerca);
+
+  const mese = url.searchParams.get('mese') ?? '';
+  if (!meseValido(mese)) return errore('Mese non valido: serve il formato AAAA-MM', 400);
+  const { dal, al } = intervalloMese(mese);
+  const adesso = oggi();
+
+  const [fatti, sospesi] = await Promise.all([
+    sql().query(
+      `SELECT ${SELEZIONE} ${TABELLE}
+       WHERE a.stato = 'fatto' AND a.data BETWEEN $1 AND $2
+       ORDER BY a.data DESC, a.ora DESC`,
+      [dal, al],
+    ),
+    sql().query(
+      `SELECT ${SELEZIONE} ${TABELLE}
+       WHERE a.stato = 'attivo' AND a.data < $1
+       ORDER BY a.data DESC, a.ora DESC
+       LIMIT ${MAX_SOSPESI}`,
+      [adesso],
+    ),
+  ]);
+
+  // Il totale non viaggia da qui: lo fa il pannello sulle righe che ha a
+  // schermo. Filtrando per tecnico, una somma calcolata sul mese intero
+  // direbbe una cifra diversa da quella dell'elenco sotto.
+  return risposta({
+    mese,
+    fatti: fatti.map(perIlBrowser),
+    sospesi: sospesi.map(perIlBrowser),
+  });
+}
+
+/**
+ * La ricerca attraversa tutto l'archivio, non il mese aperto: quando si cerca
+ * un cliente non si sa in che mese si era andati — è il motivo per cui la
+ * casella esiste.
+ */
+async function cercaNelloStorico(testo) {
+  // I jolly di LIKE vanno disattivati: un "%" scritto per caso dentro la
+  // casella restituirebbe l'archivio intero invece di niente.
+  const termine = `%${testo.replace(/[\\%_]/g, '\\$&')}%`;
+  const righe = await sql().query(
+    `SELECT ${SELEZIONE} ${TABELLE}
+     WHERE (a.stato = 'fatto' OR (a.stato = 'attivo' AND a.data < $2))
+       AND (a.nome_cliente ILIKE $1 ESCAPE '\\' OR a.luogo_impianto ILIKE $1 ESCAPE '\\')
+     ORDER BY a.data DESC, a.ora DESC
+     LIMIT ${MAX_RICERCA}`,
+    [termine, oggi()],
+  );
+  return risposta({
+    cerca: testo,
+    trovati: righe.map(perIlBrowser),
+    // Il pannello lo dice a schermo invece di far credere che siano tutti.
+    troncata: righe.length === MAX_RICERCA,
+  });
+}
+
 async function postAppuntamento(req, utente) {
   const corpo = await leggiJson(req);
   const { valori, errori } = validaAppuntamento(corpo);
@@ -907,6 +982,13 @@ async function instrada(req, url, percorso, metodo) {
 
   if (percorso === '/appuntamenti' && metodo === 'GET') {
     return await getAppuntamenti(url);
+  }
+
+  // Lo storico è roba da ufficio: i tecnici hanno la loro giornata e la
+  // scheda "Tutti", e sul telefono una vista d'archivio sarebbe un peso.
+  if (percorso === '/storico' && metodo === 'GET') {
+    if (utente.ruolo !== 'admin') return errore('Riservato all\'amministratore', 403);
+    return await getStorico(url);
   }
 
   const dettaglio = /^\/appuntamenti\/(\d+)$/.exec(percorso);

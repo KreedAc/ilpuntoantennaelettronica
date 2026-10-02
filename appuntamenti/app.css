@@ -1269,3 +1269,162 @@ dialog.conferma .avviso { margin-bottom: 1rem; color: var(--pericolo); }
 }
 .blocco.compattissimo .segno-urgente { background: var(--urgente-etichetta); color: #fff; }
 .blocco.compattissimo .segno-fatto { background: var(--fatto); color: #fff; }
+
+/* ------------------------------------------------------------------ */
+/* Storico                                                             */
+/* ------------------------------------------------------------------ */
+
+.storico {
+  max-width: calc(var(--agenda-massima) + 2.5rem);
+  margin: 0 auto;
+  padding: 0 0 2.5rem;
+}
+.storico .filtri { padding: 0 1.25rem 0.9rem; }
+
+.cerca-storico { display: flex; gap: 0.5rem; align-items: center; }
+.cerca-storico input {
+  min-height: 36px;
+  width: min(22rem, 40vw);
+  padding: 0.3rem 0.7rem;
+  border: 1px solid var(--bordo-campo);
+  border-radius: 8px;
+  font: inherit;
+}
+.cerca-storico .pulsante { min-height: 36px; padding: 0 0.8rem; }
+
+.riepilogo-storico {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin: 0 1.25rem 1.1rem;
+  padding: 0.8rem 1rem;
+  border: 1px solid var(--linea);
+  border-radius: 14px;
+  background: var(--superficie);
+}
+.riepilogo-storico .numero { font-size: 26px; font-weight: 700; line-height: 1; }
+.riepilogo-storico .parola { color: var(--testo-secondario); }
+.riepilogo-storico .separatore { width: 1px; height: 18px; background: var(--linea); align-self: center; }
+.riepilogo-storico .incassato { font-size: 20px; font-weight: 600; color: var(--fatto); }
+.riepilogo-storico .troncata { font-size: 13px; color: var(--testo-secondario); }
+
+.giorno-storico { padding: 0 0 1.1rem; }
+.giorno-storico h2 {
+  margin: 0 0 0.6rem;
+  padding: 0 1.25rem;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--testo-secondario);
+}
+
+/* La riga dello storico ha una colonna in più rispetto a quella del telefono:
+   l'importo. Si apre con un <button>, non con un link, perché qui la scheda
+   compare di lato invece di cambiare pagina. */
+.voce.storica { grid-template-columns: 5rem 1fr auto; align-items: stretch; }
+.voce.storica .quando {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: center;
+  padding-top: 0;
+  gap: 0.1rem;
+}
+.voce.storica .quando .giorno {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--testo-secondario);
+}
+.voce.storica .quando .ora { font-size: 18px; font-weight: 600; }
+
+.voce.storica .apri {
+  display: block;
+  width: 100%;
+  padding: 0.8rem 0.95rem;
+  border: 1px solid var(--linea);
+  border-radius: 14px;
+  background: var(--superficie);
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.voce.storica .apri:hover { background: var(--fondo); }
+.voce.storica .apri .chi { font-weight: 600; }
+.voce.storica .apri .dove {
+  display: flex;
+  gap: 0.35rem;
+  margin-top: 0.15rem;
+  font-size: 13px;
+  color: var(--testo-secondario);
+}
+.voce.storica .apri .dove svg { width: 14px; height: 14px; flex: none; margin-top: 3px; }
+.voce.storica .apri .di-chi {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 0.4rem;
+  font-size: 13px;
+  color: var(--testo-secondario);
+}
+
+.voce.storica .quanto {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: center;
+  min-width: 7rem;
+  padding-left: 0.5rem;
+}
+.voce.storica .quanto .cifra { font-weight: 600; }
+.voce.storica .quanto .chiuso,
+.voce.storica .quanto .aperto { font-size: 12px; color: var(--testo-secondario); }
+
+.voce.storica.conclusa .apri { background: var(--fatto-fondo); border-color: var(--fatto-bordo); }
+.voce.storica.conclusa .quanto .chiuso { color: var(--fatto); }
+/* In agenda il nome barrato distingue il fatto dal da fare. Qui è fatto
+   tutto: barrarli tutti non distingue niente e si legge peggio. */
+.voce.storica.conclusa .chi { color: var(--testo); text-decoration: none; }
+
+/* I rimasti indietro devono farsi notare: sono lavori scivolati fra le dita,
+   non una sezione d'archivio come le altre. */
+.sospesi { margin: 0 1.25rem 1.6rem; padding: 0.9rem 0 0.2rem; border: 1px solid var(--urgente-bordo); border-radius: 14px; background: var(--urgente-fondo); }
+.sospesi h2 {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0 0 0.3rem;
+  padding: 0 1.15rem;
+  font-size: 16px;
+  color: var(--urgente-testo);
+}
+.sospesi h2 .quanti {
+  min-width: 22px;
+  padding: 0.1rem 0.4rem;
+  border-radius: 999px;
+  background: var(--urgente-testo);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  text-align: center;
+}
+.sospesi .spiega { margin: 0 0 0.8rem; padding: 0 1.15rem; font-size: 13px; color: var(--urgente-testo); }
+.sospesi .elenco { padding-bottom: 0.9rem; }
+.voce.storica.sospesa .apri { border-color: var(--urgente-bordo); }
+
+@media (max-width: 720px) {
+  .cerca-storico input { width: 100%; }
+  .voce.storica { grid-template-columns: 4rem 1fr; }
+  .voce.storica .quanto {
+    grid-column: 2;
+    flex-direction: row;
+    justify-content: flex-start;
+    gap: 0.5rem;
+    min-width: 0;
+    padding: 0.3rem 0 0;
+  }
+}
