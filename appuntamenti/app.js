@@ -384,7 +384,11 @@ async function caricaUtenti() {
 }
 
 async function caricaIntervallo(dal, al) {
-  const { appuntamenti } = await api(`/appuntamenti?dal=${dal}&al=${al}`);
+  const { appuntamenti, battito } = await api(`/appuntamenti?dal=${dal}&al=${al}`);
+  // Il battito arriva insieme ai dati, ed è stato letto dal server un attimo
+  // PRIMA di leggerli: segnarsi quello vuol dire avere un riferimento mai più
+  // recente di quello che si sta per mostrare. Vedi `controllaBattito`.
+  if (typeof battito === 'number') ultimoBattito = battito;
   return appuntamenti;
 }
 
@@ -1860,7 +1864,7 @@ function mostraCaricamento(acceso) {
   }
 }
 
-async function disegna() {
+async function disegna({ silenzioso = false } = {}) {
   const mio = ++stato.disegnoCorrente;
   const r = rotta();
 
@@ -1898,9 +1902,12 @@ async function disegna() {
   }
 
   // Solo al primissimo ingresso non c'è ancora niente da mostrare: da lì in
-  // poi si tiene la vista precedente e si accende la barra.
+  // poi si tiene la vista precedente e si accende la barra. Un aggiornamento
+  // partito da solo non accende niente: Tiziana non ha chiesto nulla, e una
+  // barra che compare da sé ogni volta che un tecnico salva sarebbe peggio
+  // del problema.
   if (radice.classList.contains('avvio')) sostituisci(schermataStato('Caricamento…'));
-  else mostraCaricamento(true);
+  else if (!silenzioso) mostraCaricamento(true);
 
   try {
     // L'elenco degli utenti si richiede a OGNI disegno, non solo la prima
@@ -1977,7 +1984,59 @@ async function disegna() {
   } finally {
     // Anche se il disegno è stato superato da uno più recente: la barra la
     // spegne comunque chi l'ha accesa, altrimenti resterebbe lì per sempre.
-    if (mio === stato.disegnoCorrente) mostraCaricamento(false);
+    if (!silenzioso && mio === stato.disegnoCorrente) mostraCaricamento(false);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Aggiornamento in diretta
+// ---------------------------------------------------------------------------
+// Tiziana tiene la dashboard aperta mentre Michele e Alessandro lavorano. Ogni
+// venti secondi il pannello chiede soltanto «è cambiato qualcosa?»: la domanda
+// non arriva fino al database (vedi netlify/lib/battito.mjs), quindi costa
+// pochissimo, e gli appuntamenti si vanno a riprendere solo quando la risposta
+// è diversa da quella di prima.
+//
+// Non sono notifiche in tempo reale: Netlify non tiene connessioni aperte, e
+// tenerne una aperta tutto il giorno costerebbe molto di più di una domanda
+// ogni venti secondi.
+
+const OGNI_QUANTO = 20 * 1000;
+
+// L'ultimo valore visto. Lo scrive chi carica gli appuntamenti, perché è lì
+// che si sa a quale momento corrisponde quello che c'è a schermo; qui si
+// confronta soltanto. Azzerarlo a ogni disegno sembrava più semplice, ma
+// lasciava scoperti i venti secondi fra un disegno e il controllo successivo:
+// una modifica arrivata in quella finestra diventava il nuovo riferimento e
+// non veniva mostrata mai.
+let ultimoBattito = null;
+let battitoInCorso = false;
+let battitoSpento = false;
+
+/** Le viste che ha senso rinfrescare da sole: quelle che mostrano l'agenda. */
+const VISTE_DAL_VIVO = ['giorno', 'agenda', 'settimana', 'tutti', 'daassegnare'];
+
+async function controllaBattito() {
+  if (battitoSpento || battitoInCorso) return;
+  if (!stato.utente || stato.utente.deveCambiarePassword) return;
+  if (document.visibilityState !== 'visible') return;
+  if (!VISTE_DAL_VIVO.includes(rotta().vista)) return;
+  // Mentre una finestra è aperta non si ridisegna niente sotto le mani di chi
+  // sta scrivendo. Non si prende nemmeno nota del battito nuovo: così appena
+  // la chiude, al giro dopo, l'aggiornamento arriva.
+  if (document.querySelector('dialog[open]')) return;
+
+  battitoInCorso = true;
+  try {
+    const { cambiato } = await api('/battito');
+    if (ultimoBattito === null) ultimoBattito = cambiato;      // primo giro
+    else if (cambiato !== ultimoBattito) await disegna({ silenzioso: true });
+  } catch (e) {
+    // Senza rete si riprova al giro dopo. Con la sessione scaduta invece si
+    // smette: continuare vorrebbe dire bussare a vuoto ogni venti secondi.
+    if (e.stato === 401) battitoSpento = true;
+  } finally {
+    battitoInCorso = false;
   }
 }
 
@@ -2035,9 +2094,12 @@ window.addEventListener('popstate', () => disegna());
 // l'installatore la riapre dalla notifica — e ogni quarto d'ora se resta
 // aperta sulla scrivania di Tiziana.
 document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible') controllaVersione();
+  if (document.visibilityState !== 'visible') return;
+  controllaVersione();
+  controllaBattito();   // tornando sulla scheda si riallinea subito
 });
 setInterval(controllaVersione, 15 * 60 * 1000);
+setInterval(controllaBattito, OGNI_QUANTO);
 
 // Ridimensionando la finestra basta ricalcolare l'altezza della fascia:
 // non serve ridisegnare l'agenda né richiedere di nuovo i dati.

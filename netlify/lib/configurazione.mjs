@@ -42,7 +42,7 @@ export const COOKIE_SESSIONE = 'pa_sessione';
  * quella è ancora meglio: cambia da sola a ogni pubblicazione e non si può
  * dimenticare di aggiornarla.
  */
-export const VERSIONE_PANNELLO = '13';
+export const VERSIONE_PANNELLO = '14';
 
 export const versioneInLinea = () =>
   process.env.COMMIT_REF || process.env.DEPLOY_ID || VERSIONE_PANNELLO;

@@ -21,6 +21,7 @@ import {
 import { verifica, cifra, bruciaTempo, LUNGHEZZA_MINIMA } from '../lib/password.mjs';
 import { avvisa, chiavePubblica, conNotificheAttive } from '../lib/push.mjs';
 import { titoliCambioTecnico } from '../lib/avvisi.mjs';
+import { segnaCambiamento, leggiBattito } from '../lib/battito.mjs';
 import {
   FASCE, ORA_INIZIO, ORA_FINE, PASSO_MINUTI,
   TENTATIVI_MASSIMI, FINESTRA_TENTATIVI_MINUTI, versioneInLinea,
@@ -413,6 +414,22 @@ async function postLogout(req) {
 // Appuntamenti
 // ---------------------------------------------------------------------------
 
+/**
+ * Il battito di adesso: dal deposito se risponde, altrimenti dal database.
+ *
+ * Il ripiego sul database serve perché il pannello non resti fermo se il
+ * deposito non è disponibile: costa di più, ma la risposta è la stessa.
+ */
+async function battitoAdesso() {
+  const dalDeposito = await leggiBattito();
+  if (dalDeposito !== null) return dalDeposito;
+  const [riga] = await sql()`
+    SELECT COALESCE(round(extract(epoch FROM max(aggiornato_il)) * 1000), 0)::bigint AS adesso
+    FROM appuntamenti
+  `;
+  return Number(riga.adesso);
+}
+
 async function getAppuntamenti(url) {
   const dal = url.searchParams.get('dal');
   const al = url.searchParams.get('al');
@@ -433,6 +450,12 @@ async function getAppuntamenti(url) {
   // mucchio, che copre due mesi e scaricarla tutta sarebbe uno spreco.
   const soloLiberi = url.searchParams.get('liberi') === '1';
 
+  // Il battito si legge PRIMA degli appuntamenti, non dopo. Così quello che
+  // il pannello si segna è al massimo vecchio quanto i dati che sta per
+  // mostrare, mai più recente: nel peggiore dei casi si ridisegna una volta
+  // di troppo, e non capita mai di perdere una modifica arrivata nel mezzo.
+  const battito = await battitoAdesso();
+
   // Gli annullati non compaiono in nessuna vista; i fatti sì, barrati.
   const righe = await sql().query(
     `SELECT ${SELEZIONE} ${TABELLE}
@@ -441,7 +464,7 @@ async function getAppuntamenti(url) {
      ORDER BY a.data, a.ora, a.id`,
     [dal, al],
   );
-  return risposta({ appuntamenti: righe.map(perIlBrowser) });
+  return risposta({ appuntamenti: righe.map(perIlBrowser), battito });
 }
 
 /**
@@ -760,140 +783,170 @@ async function postDisiscrizionePush(req, utente) {
 // Instradamento
 // ---------------------------------------------------------------------------
 
+/** Gli indirizzi la cui scrittura cambia quello che si vede in agenda. */
+const CAMBIA_AGENDA = /^\/(appuntamenti|push)\b/;
+
 export default async (req) => {
   const url = new URL(req.url);
   const percorso = url.pathname.replace(/^\/api/, '').replace(/\/+$/, '') || '/';
   const metodo = req.method.toUpperCase();
 
   try {
-    // --- pubblico ---------------------------------------------------------
-    if (percorso === '/configurazione' && metodo === 'GET') {
-      return risposta({
-        fasce: FASCE,
-        oraInizio: ORA_INIZIO,
-        oraFine: ORA_FINE,
-        passoMinuti: PASSO_MINUTI,
-        chiavePush: chiavePubblica(),
-        versione: versioneInLinea(),
-      });
+    const esito = await instrada(req, url, percorso, metodo);
+    // Il battito si segna qui, in un posto solo: ogni scrittura andata a buon
+    // fine lo aggiorna, senza doverselo ricordare in ognuna delle funzioni
+    // che toccano gli appuntamenti. Ci sono dentro anche le iscrizioni alle
+    // notifiche, perché Tiziana vede in agenda chi non le riceve.
+    if (metodo !== 'GET' && esito.ok && CAMBIA_AGENDA.test(percorso)) {
+      await segnaCambiamento();
     }
-
-    if (percorso === '/login' && metodo === 'POST') {
-      if (!origineLecita(req)) return errore('Richiesta non valida', 403);
-      return await postLogin(req);
-    }
-
-    // --- da qui in poi serve la sessione ----------------------------------
-    const utente = await utenteCollegato(req);
-
-    if (percorso === '/logout' && metodo === 'POST') {
-      if (!origineLecita(req)) return errore('Richiesta non valida', 403);
-      return await postLogout(req);
-    }
-
-    if (!utente) return errore('Non autenticato', 401);
-
-    if (percorso === '/sessione' && metodo === 'GET') {
-      return risposta({ utente: perIlPannello(utente) });
-    }
-
-    // Ogni scrittura deve arrivare dal nostro stesso sito.
-    if (metodo !== 'GET' && !origineLecita(req)) {
-      return errore('Richiesta non valida', 403);
-    }
-
-    if (percorso === '/password' && metodo === 'POST') {
-      return await postPassword(req, utente);
-    }
-
-    // Con una password provvisoria non si fa nient'altro che cambiarla. Il
-    // blocco è qui e non solo nell'interfaccia: una sessione aperta con la
-    // password provvisoria non deve poter leggere i dati dei clienti
-    // chiamando gli indirizzi a mano.
-    if (utente.deve_cambiare_password === true) {
-      return errore('Devi prima scegliere una password tua', 403, { cambiaPassword: true });
-    }
-
-    // --- lettura: entrambi i ruoli vedono tutto ---------------------------
-    // Michele e Alessandro si vedono fra loro: sapere che il collega è già in
-    // zona serve, ed evita due interventi allo stesso indirizzo.
-    if (percorso === '/utenti' && metodo === 'GET') {
-      const utenti = await elencoUtenti();
-      const conNotifiche = await conNotificheAttive(utenti.map((u) => u.id));
-      // Il conteggio dei lavori liberi viaggia qui, e non su un indirizzo
-      // suo, perché serve a disegnare la pastiglia sulla scheda in ogni
-      // schermata: l'interfaccia chiede già questo elenco a ogni disegno, e
-      // una richiesta in meno su rete mobile si sente.
-      const [{ liberi }] = await sql()`
-        SELECT count(*)::int AS liberi
-        FROM appuntamenti
-        WHERE stato = 'attivo' AND assegnato_a IS NULL
-      `;
-      return risposta({
-        utenti: utenti.map((u) => ({
-          id: u.id,
-          nome: u.nome,
-          ruolo: u.ruolo,
-          posizione: u.posizione,
-          nascosto: u.nascosto,
-          notificheAttive: conNotifiche.has(u.id),
-        })),
-        daAssegnare: liberi,
-      });
-    }
-
-    if (percorso === '/appuntamenti' && metodo === 'GET') {
-      return await getAppuntamenti(url);
-    }
-
-    const dettaglio = /^\/appuntamenti\/(\d+)$/.exec(percorso);
-    if (dettaglio && metodo === 'GET') {
-      const riga = await leggiAppuntamento(Number(dettaglio[1]));
-      if (!riga) return errore('Appuntamento non trovato', 404);
-      return risposta({ appuntamento: perIlBrowser(riga) });
-    }
-
-    // --- iscrizione alle notifiche: entrambi i ruoli ----------------------
-    if (percorso === '/push/iscrizione' && metodo === 'POST') {
-      return await postIscrizionePush(req, utente);
-    }
-    if (percorso === '/push/disiscrizione' && metodo === 'POST') {
-      return await postDisiscrizionePush(req, utente);
-    }
-
-    // --- scrittura --------------------------------------------------------
-    // Non c'è più un blocco unico per ruolo: ogni handler controlla se
-    // l'appuntamento è di chi lo sta toccando (`puoToccare`), perché ora
-    // l'installatore può agire, ma solo sui propri.
-    if (percorso === '/appuntamenti' && metodo === 'POST') {
-      return await postAppuntamento(req, utente);
-    }
-    if (dettaglio && metodo === 'PATCH') {
-      return await patchAppuntamento(req, Number(dettaglio[1]), utente);
-    }
-    const rimanda = /^\/appuntamenti\/(\d+)\/rimanda$/.exec(percorso);
-    if (rimanda && metodo === 'PATCH') {
-      return await patchRimanda(req, Number(rimanda[1]), utente);
-    }
-    const assegna = /^\/appuntamenti\/(\d+)\/assegna$/.exec(percorso);
-    if (assegna && metodo === 'PATCH') {
-      return await patchAssegna(req, Number(assegna[1]), utente);
-    }
-    const segnaFatto = /^\/appuntamenti\/(\d+)\/fatto$/.exec(percorso);
-    if (segnaFatto && metodo === 'POST') {
-      return await postFatto(req, Number(segnaFatto[1]), utente);
-    }
-    const annulla = /^\/appuntamenti\/(\d+)\/annulla$/.exec(percorso);
-    if (annulla && metodo === 'POST') {
-      return await postAnnulla(req, Number(annulla[1]), utente);
-    }
-
-    return errore('Indirizzo non trovato', 404);
+    return esito;
   } catch (e) {
     // Nel log finisce il tipo di errore, mai il contenuto della richiesta.
     console.error('Errore API:', e?.message);
     return errore('Errore del server. Riprova.', 500);
   }
 };
+
+async function instrada(req, url, percorso, metodo) {
+  // --- pubblico ---------------------------------------------------------
+  if (percorso === '/configurazione' && metodo === 'GET') {
+    return risposta({
+      fasce: FASCE,
+      oraInizio: ORA_INIZIO,
+      oraFine: ORA_FINE,
+      passoMinuti: PASSO_MINUTI,
+      chiavePush: chiavePubblica(),
+      versione: versioneInLinea(),
+    });
+  }
+
+  if (percorso === '/login' && metodo === 'POST') {
+    if (!origineLecita(req)) return errore('Richiesta non valida', 403);
+    return await postLogin(req);
+  }
+
+  // --- da qui in poi serve la sessione ----------------------------------
+  const utente = await utenteCollegato(req);
+
+  if (percorso === '/logout' && metodo === 'POST') {
+    if (!origineLecita(req)) return errore('Richiesta non valida', 403);
+    return await postLogout(req);
+  }
+
+  if (!utente) return errore('Non autenticato', 401);
+
+  if (percorso === '/sessione' && metodo === 'GET') {
+    return risposta({ utente: perIlPannello(utente) });
+  }
+
+  // Il pannello lo chiede in continuazione: deve costare il meno possibile.
+  // Niente database finché il deposito risponde (vedi lib/battito.mjs).
+  if (percorso === '/battito' && metodo === 'GET') {
+    const dal_deposito = await leggiBattito();
+    if (dal_deposito !== null) return risposta({ cambiato: dal_deposito });
+    // Deposito muto: la risposta la sa anche il database, costa di più.
+    const [riga] = await sql()`
+      SELECT COALESCE(
+        round(extract(epoch FROM max(aggiornato_il)) * 1000), 0
+      )::bigint AS cambiato
+      FROM appuntamenti
+    `;
+    return risposta({ cambiato: Number(riga.cambiato) });
+  }
+
+  // Ogni scrittura deve arrivare dal nostro stesso sito.
+  if (metodo !== 'GET' && !origineLecita(req)) {
+    return errore('Richiesta non valida', 403);
+  }
+
+  if (percorso === '/password' && metodo === 'POST') {
+    return await postPassword(req, utente);
+  }
+
+  // Con una password provvisoria non si fa nient'altro che cambiarla. Il
+  // blocco è qui e non solo nell'interfaccia: una sessione aperta con la
+  // password provvisoria non deve poter leggere i dati dei clienti
+  // chiamando gli indirizzi a mano.
+  if (utente.deve_cambiare_password === true) {
+    return errore('Devi prima scegliere una password tua', 403, { cambiaPassword: true });
+  }
+
+  // --- lettura: entrambi i ruoli vedono tutto ---------------------------
+  // Michele e Alessandro si vedono fra loro: sapere che il collega è già in
+  // zona serve, ed evita due interventi allo stesso indirizzo.
+  if (percorso === '/utenti' && metodo === 'GET') {
+    const utenti = await elencoUtenti();
+    const conNotifiche = await conNotificheAttive(utenti.map((u) => u.id));
+    // Il conteggio dei lavori liberi viaggia qui, e non su un indirizzo
+    // suo, perché serve a disegnare la pastiglia sulla scheda in ogni
+    // schermata: l'interfaccia chiede già questo elenco a ogni disegno, e
+    // una richiesta in meno su rete mobile si sente.
+    const [{ liberi }] = await sql()`
+      SELECT count(*)::int AS liberi
+      FROM appuntamenti
+      WHERE stato = 'attivo' AND assegnato_a IS NULL
+    `;
+    return risposta({
+      utenti: utenti.map((u) => ({
+        id: u.id,
+        nome: u.nome,
+        ruolo: u.ruolo,
+        posizione: u.posizione,
+        nascosto: u.nascosto,
+        notificheAttive: conNotifiche.has(u.id),
+      })),
+      daAssegnare: liberi,
+    });
+  }
+
+  if (percorso === '/appuntamenti' && metodo === 'GET') {
+    return await getAppuntamenti(url);
+  }
+
+  const dettaglio = /^\/appuntamenti\/(\d+)$/.exec(percorso);
+  if (dettaglio && metodo === 'GET') {
+    const riga = await leggiAppuntamento(Number(dettaglio[1]));
+    if (!riga) return errore('Appuntamento non trovato', 404);
+    return risposta({ appuntamento: perIlBrowser(riga) });
+  }
+
+  // --- iscrizione alle notifiche: entrambi i ruoli ----------------------
+  if (percorso === '/push/iscrizione' && metodo === 'POST') {
+    return await postIscrizionePush(req, utente);
+  }
+  if (percorso === '/push/disiscrizione' && metodo === 'POST') {
+    return await postDisiscrizionePush(req, utente);
+  }
+
+  // --- scrittura --------------------------------------------------------
+  // Non c'è più un blocco unico per ruolo: ogni handler controlla se
+  // l'appuntamento è di chi lo sta toccando (`puoToccare`), perché ora
+  // l'installatore può agire, ma solo sui propri.
+  if (percorso === '/appuntamenti' && metodo === 'POST') {
+    return await postAppuntamento(req, utente);
+  }
+  if (dettaglio && metodo === 'PATCH') {
+    return await patchAppuntamento(req, Number(dettaglio[1]), utente);
+  }
+  const rimanda = /^\/appuntamenti\/(\d+)\/rimanda$/.exec(percorso);
+  if (rimanda && metodo === 'PATCH') {
+    return await patchRimanda(req, Number(rimanda[1]), utente);
+  }
+  const assegna = /^\/appuntamenti\/(\d+)\/assegna$/.exec(percorso);
+  if (assegna && metodo === 'PATCH') {
+    return await patchAssegna(req, Number(assegna[1]), utente);
+  }
+  const segnaFatto = /^\/appuntamenti\/(\d+)\/fatto$/.exec(percorso);
+  if (segnaFatto && metodo === 'POST') {
+    return await postFatto(req, Number(segnaFatto[1]), utente);
+  }
+  const annulla = /^\/appuntamenti\/(\d+)\/annulla$/.exec(percorso);
+  if (annulla && metodo === 'POST') {
+    return await postAnnulla(req, Number(annulla[1]), utente);
+  }
+
+  return errore('Indirizzo non trovato', 404);
+}
 
 export const config = { path: '/api/*' };

@@ -287,6 +287,48 @@ cassetto o dal mucchio dei lavori liberi — chi lo riceve legge «Intervento
 assegnato a te» e chi lo lascia «Intervento passato a *nome*». I titoli stanno
 in `netlify/lib/avvisi.mjs`, fuori dall'API, perché si possano provare da soli.
 
+### L'agenda si aggiorna da sola
+
+Tiziana tiene la dashboard aperta mentre Michele e Alessandro lavorano. Ogni
+**20 secondi** il pannello chiede `GET /api/battito`, che risponde con un solo
+numero: l'istante dell'ultima modifica. Se è lo stesso di prima la richiesta
+finisce lì; se è diverso, il pannello si riprende gli appuntamenti e ridisegna
+**senza accendere la barra di caricamento** — l'aggiornamento non l'ha chiesto
+nessuno, e una barra che compare da sé a ogni salvataggio di un tecnico
+sarebbe peggio del problema.
+
+Non sono notifiche in tempo reale, ed è una scelta: Netlify non tiene
+connessioni aperte, e tenerne una viva tutto il giorno costerebbe molto più di
+una domanda ogni venti secondi.
+
+**Perché il battito non passa dal database.** Neon sul piano gratuito spegne
+il computo dopo 5 minuti di inattività, e il conto si fa sulle ore in cui resta
+acceso: 100 CU-hours ≈ **400 ore** al mese a 0,25 CU. Una domanda ogni venti
+secondi lo terrebbe sveglio per tutta la giornata lavorativa — da sole ~270
+ore al mese, più le ~120 che già consumano i promemoria ogni mezz'ora. Si
+arriverebbe al limite, e **superarlo sospende il database fino al mese
+successivo**: tutto il pannello fermo. Quindi il numero vive in un deposito
+[Netlify Blobs](https://docs.netlify.com/build/data-and-storage/netlify-blobs/)
+(`netlify/lib/battito.mjs`), che non c'entra con Neon: leggerlo non sveglia
+niente, e il database si tocca solo quando c'è davvero qualcosa di nuovo.
+
+Due dettagli che sembrano pignoleria e non lo sono:
+
+- **Il battito si legge prima dei dati, non dopo.** Viaggia insieme alla
+  risposta di `GET /api/appuntamenti`, letto un attimo prima della query. Così
+  il riferimento che il pannello si segna è al massimo vecchio quanto quello
+  che mostra, mai più recente: al peggio si ridisegna una volta di troppo, e
+  non capita mai di perdere una modifica arrivata nel mezzo.
+- **Con una finestra aperta non si ridisegna niente.** Finché c'è un `<dialog>`
+  aperto il controllo si ferma e non prende nemmeno nota del valore nuovo: così
+  l'aggiornamento arriva appena Tiziana chiude, invece di sparire.
+
+Se il deposito non risponde, `/battito` ripiega su `max(aggiornato_il)` nel
+database: costa di più, ma il pannello non resta fermo. E `segnaCambiamento()`
+non solleva mai: un problema lì vorrebbe dire al massimo che l'aggiornamento
+arriva al cambio di vista, e non è un motivo per far fallire il salvataggio di
+un appuntamento.
+
 ### L'account di prova
 
 Un utente con `nascosto = true` serve a provare notifiche e schermate senza
