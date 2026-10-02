@@ -915,3 +915,49 @@ footer.sito li.social svg { flex-shrink: 0; }
   .prodotto .risparmio { top: 0.6rem; right: 0.6rem; font-size: 0.72rem; }
   .titolo-gruppo { font-size: 1.2rem; }
 }
+
+/* ---------- Galleria del negozio ---------- */
+/* Le foto hanno formati diversi — alcune in piedi, altre sdraiate — e
+   ritagliarle tutte uguali taglierebbe via proprio quello che si vuole far
+   vedere. Quindi niente ritagli: le sdraiate prendono tutta la larghezza, le
+   in piedi si affiancano fra loro. `align-items: start` lascia a ciascuna la
+   sua altezza naturale, invece di stirare la più bassa per pareggiare. */
+.galleria-negozio {
+  display: grid;
+  gap: 1.2rem;
+  grid-template-columns: 1fr;
+  align-items: start;
+}
+.galleria-negozio figure {
+  margin: 0;
+  background: var(--bianco);
+  border: 1px solid var(--grigio-bordo);
+  border-radius: var(--radius);
+  overflow: hidden;
+  box-shadow: var(--ombra);
+}
+.galleria-negozio img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.galleria-negozio figcaption {
+  padding: 0.85rem 1.1rem 1rem;
+  font-size: 0.95rem;
+  color: var(--grigio-testo);
+}
+
+@media (min-width: 760px) {
+  .galleria-negozio { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .galleria-negozio figure.larga { grid-column: 1 / -1; }
+  /* Le due in piedi affiancate hanno proporzioni diverse fra loro, e lasciate
+     intere una finisce molto più in basso dell'altra: resta un buco bianco
+     che sembra un errore. Le si porta alla stessa forma con un ritaglio
+     leggero — poco più di un decimo — e solo qui: a tutta larghezza, e sul
+     telefono dove stanno una sotto l'altra, restano intere. */
+  .galleria-negozio figure:not(.larga) img {
+    aspect-ratio: 2 / 3;
+    object-fit: cover;
+    object-position: center 40%;
+  }
+}
