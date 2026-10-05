@@ -19,7 +19,10 @@ import {
   meseValido, meseDi, intervalloMese, piuMesi, meseEsteso,
 } from '../netlify/lib/calendario.mjs';
 import { cifra, verifica } from '../netlify/lib/password.mjs';
-import { comeDire } from '../netlify/functions/promemoria.mjs';
+import {
+  comeDire, config as configPromemoria,
+  MINUTI_MINIMI, MINUTI_MASSIMI, ORA_PULIZIA,
+} from '../netlify/functions/promemoria.mjs';
 import { titoliCambioTecnico } from '../netlify/lib/avvisi.mjs';
 
 describe('fasce orarie', () => {
@@ -337,6 +340,73 @@ describe('mesi dello storico', () => {
     assert.equal(meseDi('2026-09-30'), '2026-09');
     assert.equal(meseEsteso('2026-09'), 'settembre 2026');
     assert.equal(meseEsteso('2026-01'), 'gennaio 2026');
+  });
+});
+
+describe('quando girano i promemoria', () => {
+  // Netlify conta in UTC, l'Italia no: +1 d'inverno, +2 d'estate. Qui si
+  // ricostruiscono gli orari di esecuzione e si verifica che in ENTRAMBE le
+  // stagioni ogni fascia abbia almeno un giro dentro la sua finestra d'avviso.
+  const SCARTO = { inverno: 60, estate: 120 };
+
+  /** I minuti dalla mezzanotte in cui il cron fa partire la funzione, in UTC. */
+  function giriUTC(schedule) {
+    const [minuti, ore] = schedule.split(' ');
+    const passo = Number(minuti.replace('*/', ''));
+    const [da, a] = ore === '*' ? [0, 23] : ore.split('-').map(Number);
+    const quando = [];
+    for (let h = da; h <= a; h += 1) {
+      for (let m = 0; m < 60; m += passo) quando.push(h * 60 + m);
+    }
+    return quando;
+  }
+
+  const inMinuti = (ora) => {
+    const [h, m] = ora.split(':').map(Number);
+    return h * 60 + m;
+  };
+
+  const giri = giriUTC(configPromemoria.schedule);
+
+  test('ogni fascia ha un giro dentro la finestra, estate e inverno', () => {
+    for (const [stagione, scarto] of Object.entries(SCARTO)) {
+      const locali = giri.map((m) => m + scarto);
+      for (const fascia of FASCE) {
+        const appuntamento = inMinuti(fascia);
+        const dentro = locali.some((giro) =>
+          giro >= appuntamento - MINUTI_MASSIMI && giro <= appuntamento - MINUTI_MINIMI);
+        assert.ok(dentro,
+          `d'${stagione} nessun giro avvisa l'appuntamento delle ${fascia}: ` +
+          'gli orari del negozio sono cambiati e config.schedule va rifatto');
+      }
+    }
+  });
+
+  test('la pulizia dei segni vecchi capita ancora, una volta al giorno', () => {
+    // Girava alle 3 di notte, che con la finestra ristretta non arriva più.
+    for (const [stagione, scarto] of Object.entries(SCARTO)) {
+      const locali = giri.map((m) => m + scarto);
+      const quanti = locali.filter((g) => Math.floor(g / 60) === ORA_PULIZIA && g % 60 < 30).length;
+      assert.equal(quanti, 1,
+        `d'${stagione} la pulizia capiterebbe ${quanti} volte al giorno invece di una`);
+    }
+  });
+
+  test('di notte non si sveglia il database per niente', () => {
+    // È il motivo della finestra: ogni giro tiene Neon acceso cinque minuti.
+    for (const scarto of Object.values(SCARTO)) {
+      const locali = giri.map((m) => m + scarto);
+      assert.ok(!locali.some((g) => g >= 21 * 60 || g < 5 * 60),
+        'ci sono giri nel cuore della notte');
+    }
+  });
+
+  test('i giorni non sono ristretti: la domenica si può lavorare', () => {
+    // GIORNI_LAVORATIVI serve all'interfaccia, ma la validazione non impedisce
+    // un appuntamento di domenica: togliergli il promemoria sarebbe un guasto
+    // che non si vede.
+    const giorni = configPromemoria.schedule.split(' ')[4];
+    assert.equal(giorni, '*', 'il cron esclude dei giorni della settimana');
   });
 });
 

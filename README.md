@@ -240,6 +240,30 @@ partire Netlify **ogni mezz'ora** (`config.schedule`), che è anche il passo
 delle fasce. A ogni giro cerca gli interventi **attivi e assegnati** che
 cominciano fra 10 e 80 minuti, e avvisa chi li deve fare.
 
+**Ma solo nelle ore in cui può servire**, cioè `*/30 4-18 * * *`. Di notte non
+c'è nessun appuntamento da annunciare, e ogni esecuzione tiene sveglio Neon
+per cinque minuti: girare 24 ore su 24 costava da solo **~120 ore al mese** di
+computo acceso sulle 400 del piano gratuito, adesso ne costa **~75**.
+
+Il `4-18` è in **UTC**, perché è così che Netlify conta le ore. L'Italia è
++1 d'inverno e +2 d'estate, quindi quella finestra vale 05:00–19:30 a gennaio
+e 06:00–20:30 a luglio: in tutte e due le stagioni copre con margine le
+06:40–19:20 che servono agli appuntamenti delle 08:00 e delle 19:30.
+
+I **giorni** invece non sono ristretti, ed è voluto: `GIORNI_LAVORATIVI` serve
+all'interfaccia ma la validazione non impedisce un appuntamento di domenica,
+e lasciarlo senza promemoria sarebbe un guasto che non si vede.
+
+Due cose che si rompevano in silenzio, e che una prova in `npm test` adesso
+sorveglia:
+
+- la finestra necessaria si **ricalcola dalle fasce** e dai minuti di
+  anticipo, per entrambe le stagioni: se cambiano gli orari del negozio la
+  prova fallisce e dice che `config.schedule` va rifatto;
+- la **pulizia dei segni vecchi** girava alle 3 di notte, che dentro la nuova
+  finestra non capita più. È stata spostata alle 7 (`ORA_PULIZIA`), e la prova
+  verifica che capiti esattamente una volta al giorno in entrambe le stagioni.
+
 Con esecuzioni ogni 30 minuti, un intervento delle 10:00 ricade per la prima
 volta in quella finestra al giro delle 09:00: **l'avviso arriva un'ora prima**.
 La finestra è più larga apposta — se un'esecuzione saltasse, la successiva
@@ -317,7 +341,7 @@ una domanda ogni venti secondi.
 il computo dopo 5 minuti di inattività, e il conto si fa sulle ore in cui resta
 acceso: 100 CU-hours ≈ **400 ore** al mese a 0,25 CU. Una domanda ogni venti
 secondi lo terrebbe sveglio per tutta la giornata lavorativa — da sole ~270
-ore al mese, più le ~120 che già consumano i promemoria ogni mezz'ora. Si
+ore al mese, più le ~75 che consumano i promemoria. Si
 arriverebbe al limite, e **superarlo sospende il database fino al mese
 successivo**: tutto il pannello fermo. Quindi il numero vive in un deposito
 [Netlify Blobs](https://docs.netlify.com/build/data-and-storage/netlify-blobs/)

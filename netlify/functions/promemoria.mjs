@@ -1,15 +1,16 @@
 // Promemoria: un avviso circa un'ora prima di ogni intervento.
 //
 // Questa funzione non risponde a nessuna richiesta: la fa partire Netlify da
-// sola, ogni mezz'ora (vedi `config.schedule` in fondo). Mezz'ora è anche il
-// passo delle fasce, quindi ogni appuntamento cade in una sola finestra.
+// sola, ogni mezz'ora nelle ore che servono (vedi `config.schedule` in fondo).
+// Mezz'ora è anche il passo delle fasce, quindi ogni appuntamento cade in una
+// sola finestra.
 //
 // Perché non `pg_cron` dentro il database, come nel progetto della barberia:
 // lì Supabase teneva il database sempre acceso. Neon invece lo spegne dopo 5
 // minuti di inattività, e un cron interno a un database spento non parte.
 // La sveglia deve stare fuori.
 //
-// Costo: circa 2 crediti Netlify al mese, cioè due centesimi.
+// Costo: poco più di un credito Netlify al mese, cioè un centesimo.
 
 import { sql } from '../lib/db.mjs';
 import { avvisa, chiavePubblica } from '../lib/push.mjs';
@@ -21,8 +22,15 @@ import { oraItaliana } from '../lib/calendario.mjs';
 //
 // Con esecuzioni ogni 30 minuti, un intervento delle 10:00 ricade per la prima
 // volta nella finestra al giro delle 09:00 — cioè esattamente un'ora prima.
-const MINUTI_MINIMI = 10;
-const MINUTI_MASSIMI = 80;
+export const MINUTI_MINIMI = 10;
+export const MINUTI_MASSIMI = 80;
+
+/**
+ * L'ora italiana in cui si ripuliscono i segni vecchi. Una volta al giorno
+ * basta. Prima erano le 3 di notte, ma da quando la funzione gira solo nelle
+ * ore utili a quell'ora non parte più nessuno: deve stare dentro la finestra.
+ */
+export const ORA_PULIZIA = 7;
 
 /**
  * Segna che un avviso è stato mandato, e dice se era già stato mandato prima.
@@ -85,7 +93,7 @@ export function comeDire(minuti) {
   return `Fra circa ${Math.round(minuti / 5) * 5} minuti`;
 }
 
-/** Ripulisce i segni vecchi: una volta al giorno, di notte, basta e avanza. */
+/** Ripulisce i segni vecchi: una volta al giorno basta e avanza. */
 async function ripulisci() {
   try {
     await sql()`DELETE FROM promemoria_inviati WHERE quando < now() - interval '30 days'`;
@@ -116,12 +124,34 @@ export default async () => {
   }
 
   const { ore, minuti } = oraItaliana();
-  if (ore === 3 && minuti < 30) await ripulisci();
+  if (ore === ORA_PULIZIA && minuti < 30) await ripulisci();
 
   // Nel log niente nomi di clienti: solo quanti avvisi sono partiti.
   console.log(`Promemoria: ore ${ore}:${String(minuti).padStart(2, '0')} in Italia, ` +
               `${righe.length} interventi in arrivo, ${mandati} avvisi inviati.`);
 };
 
-// Ogni mezz'ora, come il passo delle fasce.
-export const config = { schedule: '*/30 * * * *' };
+/*
+ * Ogni mezz'ora, come il passo delle fasce — ma solo nelle ore in cui può
+ * servire. Di notte non c'è nessun appuntamento da annunciare, e ogni
+ * esecuzione sveglia il database per cinque minuti: girare 24 ore su 24
+ * costava da solo ~120 ore al mese di computo acceso sulle 400 del piano
+ * gratuito. Così scendono a ~75.
+ *
+ * Perché 4-18 e non gli orari del negozio. Netlify conta in UTC, l'Italia no:
+ * +1 d'inverno, +2 d'estate. Gli appuntamenti vanno dalle 08:00 alle 19:30 e
+ * l'avviso parte fra 80 e 10 minuti prima, quindi serve una esecuzione fra le
+ * 06:40 e le 19:20 italiane. Questa finestra va bene in entrambe le stagioni:
+ *
+ *   inverno (UTC+1):  04:00–18:30 UTC  =  05:00–19:30 in Italia
+ *   estate  (UTC+2):  04:00–18:30 UTC  =  06:00–20:30 in Italia
+ *
+ * Non si restringono anche i GIORNI. `GIORNI_LAVORATIVI` serve all'interfaccia
+ * ma non è imposto dalla validazione: un appuntamento di domenica si può
+ * creare, e saltarne il promemoria sarebbe un guasto silenzioso.
+ *
+ * C'è una prova in `npm test` che ricalcola la finestra necessaria dalle fasce
+ * e dai minuti di anticipo: se cambiano gli orari del negozio, quella fallisce
+ * e dice che questa riga va rifatta.
+ */
+export const config = { schedule: '*/30 4-18 * * *' };
