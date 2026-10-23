@@ -453,6 +453,64 @@ La migrazione del database sta in `db/migrazioni/2026-10-ricontatti.sql` ed è
 **compatibile con il pannello precedente**: va lanciata *prima* di pubblicare
 il codice nuovo.
 
+### Conferma su WhatsApp
+
+Quando **Tiziana** fissa un appuntamento, al cliente parte **un solo messaggio
+WhatsApp di conferma**. Nient'altro: niente promemoria, niente messaggi quando
+si sposta o si assegna. Non parte quando è un tecnico a caricarsi un lavoro.
+
+Nel modulo «Nuovo appuntamento» c'è la casella **«Manda la conferma su
+WhatsApp»**, già spuntata. Si toglie quando il cliente non vuole messaggi (Meta
+richiede il suo consenso: la casella è il modo in cui Tiziana lo registra) o
+quando **l'orario è ancora provvisorio** e lo fisserà il tecnico. Con un numero
+fisso il modulo avvisa che su WhatsApp non arriverà.
+
+Dopo il salvataggio un avviso dice com'è andata: «Conferma WhatsApp inviata a
+Mario Greco» oppure «Appuntamento salvato, ma la conferma non è partita: …»,
+così Tiziana scrive a mano. L'appuntamento si salva **sempre**: la conferma
+parte dopo e non lo può far fallire. L'esito non si salva nel database.
+
+Passa dall'**API ufficiale** di WhatsApp (Cloud API di Meta),
+`netlify/lib/whatsapp.mjs`. Gli strumenti che comandano WhatsApp Web da soli
+sono contro le regole di WhatsApp e rischiano il blocco del numero del negozio.
+
+**Costo**: tariffa «utility» di Meta per l'Italia, circa 2,5 centesimi a
+messaggio (da verificare sul listino di Meta al momento dell'attivazione).
+
+#### Attivarla
+
+Finché mancano le variabili d'ambiente è **spenta**: la casella non compare e
+non parte niente.
+
+1. **Meta Business**: creare (o usare) l'account su business.facebook.com e
+   completare la verifica dell'azienda.
+2. **WhatsApp Business Account** con un numero. Se Meta lo consente per l'Italia
+   al momento della registrazione, si può collegare il numero WhatsApp Business
+   che il negozio usa già («coexistence»): la conferma parte da lì e le
+   risposte dei clienti arrivano nella solita app. Altrimenti serve un numero
+   dedicato.
+3. **Il modello** da sottoporre in WhatsApp Manager → Modelli di messaggio:
+   - nome: `conferma_appuntamento` · categoria: **Utility** · lingua: **Italiano**
+   - testo:
+
+     > Buongiorno {{1}}, le confermiamo l'appuntamento con Il Punto Antenna
+     > Elettronica per {{2}} alle ore {{3}}, in {{4}}. Per spostarlo o
+     > annullarlo può rispondere a questo messaggio o chiamarci al
+     > 380 283 0773.
+
+   - esempi delle variabili: `Mario Greco`, `giovedì 29 ottobre`, `10:00`,
+     `Via Roma 1, Lamezia Terme`.
+
+   L'ordine delle variabili è quello di `variabiliConferma()`: se si cambia il
+   testo, le variabili devono restare quattro e in quell'ordine.
+4. **Un token di sistema permanente** (Impostazioni business → Utenti di
+   sistema) con il permesso `whatsapp_business_messaging`.
+5. Su **Netlify → Environment variables**, come «secret»:
+   `WHATSAPP_TOKEN` e `WHATSAPP_NUMERO_ID` (il «Phone number ID»). Facoltative:
+   `WHATSAPP_MODELLO` (predefinito `conferma_appuntamento`), `WHATSAPP_LINGUA`
+   (`it`), `WHATSAPP_VERSIONE` (`v23.0`).
+6. Nuovo deploy, e la casella compare.
+
 ### Prove nel browser
 
 `npm run prova-browser` apre il pannello in Chromium con l'API simulata e

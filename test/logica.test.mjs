@@ -506,6 +506,103 @@ describe('i ricontatti non arrivano ai tecnici', () => {
   });
 });
 
+describe('conferma su WhatsApp', async () => {
+  const wa = await import('../netlify/lib/whatsapp.mjs');
+  const appuntamento = {
+    nome_cliente: 'Mario Greco', data: '2026-10-29', ora: '10:00',
+    luogo_impianto: 'Via Roma 1, Lamezia Terme', telefono_cliente: '333 123 4567',
+  };
+  const conChiavi = async (fn) => {
+    const prima = { ...process.env };
+    process.env.WHATSAPP_TOKEN = 'token-finto';
+    process.env.WHATSAPP_NUMERO_ID = '1234567890';
+    try { return await fn(); } finally {
+      for (const k of ['WHATSAPP_TOKEN', 'WHATSAPP_NUMERO_ID']) {
+        if (prima[k] === undefined) delete process.env[k]; else process.env[k] = prima[k];
+      }
+    }
+  };
+  const conFetch = async (finto, fn) => {
+    const vero = globalThis.fetch;
+    globalThis.fetch = finto;
+    try { return await fn(); } finally { globalThis.fetch = vero; }
+  };
+
+  test('senza chiavi è spenta, e non prova nemmeno', async () => {
+    delete process.env.WHATSAPP_TOKEN;
+    delete process.env.WHATSAPP_NUMERO_ID;
+    assert.equal(wa.whatsappAttivo(), false);
+    let chiamato = false;
+    const esito = await conFetch(async () => { chiamato = true; }, () => wa.mandaConferma(appuntamento));
+    assert.equal(esito.inviata, false);
+    assert.equal(chiamato, false, 'ha chiamato Meta senza chiavi');
+  });
+
+  test('i cellulari italiani passano, i fissi no', () => {
+    assert.equal(wa.numeroWhatsApp('333 123 4567'), '393331234567');
+    assert.equal(wa.numeroWhatsApp('+39 347 812 3344'), '393478123344');
+    assert.equal(wa.numeroWhatsApp('0039 333 1234567'), '393331234567');
+    assert.equal(wa.numeroWhatsApp('0968 21345'), null, 'un fisso di Lamezia');
+    assert.equal(wa.numeroWhatsApp('+39 0968 213456'), null);
+    assert.equal(wa.numeroWhatsApp('12'), null);
+    assert.equal(wa.numeroWhatsApp('+41 79 123 45 67'), '41791234567', 'un estero lo lascia decidere a WhatsApp');
+  });
+
+  test('le variabili del modello, nell\'ordine del testo', () => {
+    assert.deepEqual(wa.variabiliConferma(appuntamento).map((v) => v.text),
+      ['Mario Greco', 'giovedì 29 ottobre', '10:00', 'Via Roma 1, Lamezia Terme']);
+  });
+
+  test('manda il modello giusto al numero giusto', async () => {
+    let richiesta;
+    const esito = await conChiavi(() => conFetch(async (url, opzioni) => {
+      richiesta = { url, opzioni, corpo: JSON.parse(opzioni.body) };
+      return new Response(JSON.stringify({ messages: [{ id: 'wamid.x' }] }), { status: 200 });
+    }, () => wa.mandaConferma(appuntamento)));
+    assert.deepEqual(esito, { inviata: true });
+    assert.match(richiesta.url, /graph\.facebook\.com\/v\d+\.\d+\/1234567890\/messages$/);
+    assert.equal(richiesta.opzioni.headers.Authorization, 'Bearer token-finto');
+    assert.equal(richiesta.corpo.to, '393331234567');
+    assert.equal(richiesta.corpo.type, 'template');
+    assert.equal(richiesta.corpo.template.name, 'conferma_appuntamento');
+    assert.equal(richiesta.corpo.template.language.code, 'it');
+    assert.equal(richiesta.corpo.template.components[0].parameters.length, 4);
+  });
+
+  test('a un fisso non manda niente, e lo dice', async () => {
+    let chiamato = false;
+    const esito = await conChiavi(() => conFetch(async () => { chiamato = true; },
+      () => wa.mandaConferma({ ...appuntamento, telefono_cliente: '0968 21345' })));
+    assert.equal(esito.inviata, false);
+    assert.match(esito.motivo, /cellulare/);
+    assert.equal(chiamato, false);
+  });
+
+  test('se Meta rifiuta, spiega perché in italiano e non solleva', async () => {
+    const esito = await conChiavi(() => conFetch(async () => new Response(
+      JSON.stringify({ error: { code: 132001, message: 'Template name does not exist' } }), { status: 404 }),
+    () => wa.mandaConferma(appuntamento)));
+    assert.equal(esito.inviata, false);
+    assert.match(esito.motivo, /modello/);
+  });
+
+  test('se Meta non risponde, non solleva', async () => {
+    const esito = await conChiavi(() => conFetch(async () => { throw new Error('rete giù'); },
+      () => wa.mandaConferma(appuntamento)));
+    assert.equal(esito.inviata, false);
+  });
+
+  test('la manda solo Tiziana, e solo con la casella spuntata', async () => {
+    const { readFile } = await import('node:fs/promises');
+    const api = await readFile(new URL('../netlify/functions/api.mjs', import.meta.url), 'utf8');
+    const pezzo = api.slice(api.indexOf('async function postAppuntamento'), api.indexOf('async function patchAppuntamento'));
+    assert.match(pezzo, /utente\.ruolo === 'admin' && corpo\?\.confermaWhatsapp === true\s*\?\s*await mandaConferma/);
+    assert.equal((api.match(/mandaConferma\(/g) ?? []).length, 1, 'la conferma parte da un posto solo');
+    assert.ok(pezzo.indexOf('mandaConferma') > pezzo.indexOf('INSERT INTO appuntamenti'),
+      'la conferma deve partire dopo il salvataggio');
+  });
+});
+
 describe('password', () => {
   test('la stessa password dà impronte diverse, e si verificano entrambe', async () => {
     const uno = await cifra('una-password-lunga');

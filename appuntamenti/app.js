@@ -1418,6 +1418,9 @@ function leggiScheda(modulo) {
   if (modulo.elements.assegnatoA) {
     dati.assegnatoA = modulo.elements.assegnatoA.value || null;
   }
+  if (modulo.elements.confermaWhatsapp) {
+    dati.confermaWhatsapp = modulo.elements.confermaWhatsapp.checked;
+  }
   return dati;
 }
 
@@ -1439,10 +1442,47 @@ function mostraErrori(modulo, errore, avviso) {
   avviso.hidden = false;
 }
 
+/**
+ * Lo stesso controllo del server (lib/whatsapp.mjs): in Italia i cellulari
+ * cominciano per 3, e un fisso su WhatsApp non c'è. Serve solo ad avvisare
+ * Tiziana mentre scrive; a decidere è comunque il server.
+ */
+function eCellulare(telefono) {
+  let n = String(telefono ?? '').replace(/[^\d+]/g, '');
+  if (n.startsWith('00')) n = `+${n.slice(2)}`;
+  if (!n.startsWith('+')) n = `+39${n}`;
+  n = n.slice(1);
+  if (!/^\d{8,15}$/.test(n)) return false;
+  return n.startsWith('39') ? /^393\d{8,9}$/.test(n) : true;
+}
+
+/**
+ * La casella della conferma su WhatsApp, solo nel modulo di un appuntamento
+ * nuovo di Tiziana. È già spuntata: la si toglie se il cliente non vuole
+ * messaggi, o se l'orario è ancora provvisorio e lo fisserà il tecnico.
+ */
+function casellaWhatsapp(modulo) {
+  const nota = el('span', { class: 'nota' });
+  const casella = el('input', { type: 'checkbox', name: 'confermaWhatsapp', checked: true });
+  const aggiorna = () => {
+    const tel = modulo.elements.telefonoCliente.value;
+    const ok = !tel.trim() || eCellulare(tel);
+    nota.textContent = ok
+      ? 'Solo se il cliente è d’accordo. Toglila se l’orario è ancora provvisorio.'
+      : 'Questo numero non è un cellulare: su WhatsApp non arriverà.';
+    nota.classList.toggle('attenzione', !ok);
+  };
+  modulo.elements.telefonoCliente.addEventListener('input', aggiorna);
+  aggiorna();
+  return el('label', { class: 'scelta whatsapp' },
+    casella, el('span', {}, 'Manda la conferma su WhatsApp', nota));
+}
+
 function apriNuovo(preimpostati = {}) {
   const avviso = el('p', { class: 'avviso', role: 'alert', hidden: true });
   const modulo = el('form', { novalidate: true, id: 'modulo-nuovo' },
     avviso, campiScheda({ data: preimpostati.data ?? oggi(), ...preimpostati }));
+  if (eAdmin() && stato.config?.whatsapp) modulo.append(casellaWhatsapp(modulo));
 
   const annulla = el('button', { class: 'pulsante', type: 'button', testo: 'Annulla' });
   const salva = el('button', {
@@ -1461,9 +1501,16 @@ function apriNuovo(preimpostati = {}) {
     salva.disabled = true;
     salva.textContent = 'Salvataggio…';
     try {
-      await api('/appuntamenti', { metodo: 'POST', corpo: leggiScheda(modulo) });
+      const { appuntamento, whatsapp } = await api('/appuntamenti', { metodo: 'POST', corpo: leggiScheda(modulo) });
       chiudi();
       await disegna();
+      // L'appuntamento è salvato comunque: qui si dice solo com'è andata la
+      // conferma, così se non è partita Tiziana lo sa e scrive a mano.
+      if (whatsapp?.inviata) {
+        avvisoVolante(`Conferma WhatsApp inviata a ${appuntamento.nomeCliente}.`, { esito: true });
+      } else if (whatsapp) {
+        avvisoVolante(`Appuntamento salvato, ma la conferma WhatsApp non è partita: ${whatsapp.motivo}.`);
+      }
     } catch (errore) {
       mostraErrori(modulo, errore, avviso);
       salva.disabled = false;

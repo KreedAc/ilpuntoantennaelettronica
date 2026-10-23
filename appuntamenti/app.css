@@ -1724,3 +1724,6 @@ dialog.pannello .piede .pulsante.pericolo { flex: 0 0 auto; margin-right: auto; 
   .barra .chi { display: none; }
   .barra .destra { gap: 0.5rem; }
 }
+
+/* La casella della conferma su WhatsApp, sotto "Segna come urgente". */
+.scelta.whatsapp .nota.attenzione { color: var(--urgente-etichetta); font-weight: 600; }

@@ -119,7 +119,7 @@ async function collega(pagina, db) {
 
     if (p === '/configurazione') {
       return j({ fasce: FASCE, chiavePush: null, versione: 'a',
-        diretta: { dalle: '09:00', alle: '20:00', giorni: [] } });
+        diretta: { dalle: '09:00', alle: '20:00', giorni: [] }, whatsapp: db.whatsapp ?? false });
     }
     if (p === '/login' && metodo === 'POST') {
       const u = UTENTI.find((x) => x.nome.toLowerCase() === String(corpo.email).split('@')[0]);
@@ -141,6 +141,24 @@ async function collega(pagina, db) {
         utenti: UTENTI.map((u) => ({ ...u, notificheAttive: true })),
         daAssegnare: interventi().filter((x) => x.assegnatoA === null && x.stato === 'attivo').length,
       });
+    }
+    if (p === '/appuntamenti' && metodo === 'POST') {
+      db.ultimoNuovo = corpo;
+      const nuovo = {
+        id: db.prossimo++, tipo: 'intervento', nomeCliente: corpo.nomeCliente, luogoImpianto: corpo.luogoImpianto,
+        telefonoCliente: corpo.telefonoCliente, telefonoPerChiamata: '+39', mappa: '', prezzoCentesimi: 0,
+        prezzoConcordato: '0,00', data: corpo.data, ora: corpo.ora, note: '', urgente: false, stato: 'attivo',
+        fatto: false, fattoAlle: null, assegnatoA: admin ? (Number(corpo.assegnatoA) || null) : db.utente.id,
+      };
+      db.righe.push(nuovo);
+      // Come l'API vera: la conferma la chiede solo Tiziana, con la casella.
+      const whatsapp = admin && corpo.confermaWhatsapp === true ? (db.esitoWhatsapp ?? { inviata: true }) : null;
+      return j({ appuntamento: nuovo, whatsapp }, 201);
+    }
+    const unoSolo = /^\/appuntamenti\/(\d+)$/.exec(p);
+    if (unoSolo && metodo === 'GET') {
+      const x = interventi().find((r) => r.id === Number(unoSolo[1]));
+      return x ? j({ appuntamento: x }) : j({ errore: 'Appuntamento non trovato' }, 404);
     }
     if (p === '/appuntamenti' && metodo === 'GET') {
       const dal = url.searchParams.get('dal'), al = url.searchParams.get('al');
@@ -531,6 +549,115 @@ const apertura = (iso) => { const g = isoGiorno(iso); return g >= 6 ? giorniDa(i
   });
 
   if (SCATTI) await pagina.screenshot({ path: `${SCATTI}/ricontatti-telefono.png`, fullPage: true });
+  await ctx.close();
+}
+
+// =============================================================== WHATSAPP
+console.log('\nCONFERMA SU WHATSAPP\n');
+
+async function nuovoAppuntamento(pagina, { telefono = '333 1234567', spunta = null } = {}) {
+  await pagina.click('button:has-text("Nuovo appuntamento")');
+  await pagina.waitForSelector('dialog.pannello[open]');
+  await pagina.fill('dialog input[name="nomeCliente"]', 'Mario Greco');
+  await pagina.fill('dialog input[name="luogoImpianto"]', 'Via Roma 1');
+  await pagina.fill('dialog input[name="telefonoCliente"]', telefono);
+  await pagina.selectOption('dialog select[name="ora"]', '17:00');
+  if (spunta !== null) await pagina.setChecked('dialog input[name="confermaWhatsapp"]', spunta);
+}
+const salvaNuovo = async (pagina) => {
+  await pagina.click('dialog button:has-text("Salva appuntamento")');
+  await pagina.waitForSelector('dialog.pannello', { state: 'detached' });
+};
+
+{
+  const db = nuovoDb();
+  db.whatsapp = true;
+  const ctx = await browser.newContext(PC);
+  const pagina = await ctx.newPage();
+  await collega(pagina, db);
+  await entra(pagina, 'tiziana');
+  await pagina.goto(`${BASE}?vista=giorno&giorno=${OGGI}`, { waitUntil: 'networkidle' });
+  await pagina.waitForSelector('.agenda .persona');
+
+  await prova('nel modulo nuovo c\'è la casella, già spuntata', async () => {
+    await nuovoAppuntamento(pagina);
+    const casella = pagina.locator('dialog input[name="confermaWhatsapp"]');
+    assert(await casella.isVisible(), 'la casella non c\'è');
+    assert(await casella.isChecked(), 'non è spuntata');
+    assert(contiene(await pagina.locator('dialog .scelta.whatsapp').innerText(), 'provvisorio'), 'manca la spiegazione');
+  });
+
+  await prova('con un numero fisso avvisa che su WhatsApp non arriverà', async () => {
+    await pagina.fill('dialog input[name="telefonoCliente"]', '0968 21345');
+    assert(contiene(await pagina.locator('dialog .scelta.whatsapp .nota').innerText(), 'non è un cellulare'), 'nessun avviso');
+    await pagina.fill('dialog input[name="telefonoCliente"]', '333 1234567');
+    assert(!contiene(await pagina.locator('dialog .scelta.whatsapp .nota').innerText(), 'non è un cellulare'), 'l\'avviso è rimasto');
+  });
+
+  await prova('salvando con la spunta parte la conferma, e lo dice', async () => {
+    await salvaNuovo(pagina);
+    assert(db.ultimoNuovo.confermaWhatsapp === true, 'non ha chiesto la conferma');
+    const avviso = await pagina.locator('.avviso.esito').innerText();
+    assert(contiene(avviso, 'Conferma WhatsApp inviata a Mario Greco'), avviso);
+  });
+
+  await prova('togliendo la spunta non parte niente', async () => {
+    await nuovoAppuntamento(pagina, { spunta: false });
+    await salvaNuovo(pagina);
+    assert(db.ultimoNuovo.confermaWhatsapp === false, 'ha chiesto la conferma lo stesso');
+  });
+
+  await prova('se WhatsApp rifiuta, l\'appuntamento resta e Tiziana sa perché', async () => {
+    db.esitoWhatsapp = { inviata: false, motivo: 'il modello del messaggio non esiste o non è ancora approvato' };
+    await nuovoAppuntamento(pagina);
+    await salvaNuovo(pagina);
+    const avviso = await pagina.locator('.avviso[role="alert"]').last().innerText();
+    assert(contiene(avviso, 'Appuntamento salvato') && contiene(avviso, 'non è partita') && contiene(avviso, 'modello'), avviso);
+    assert(db.righe.filter((r) => r.nomeCliente === 'Mario Greco').length === 3, 'un appuntamento non è stato salvato');
+  });
+
+  await prova('modificando un appuntamento la casella non c\'è', async () => {
+    await pagina.click('.blocco:has-text("Maria Perri")');
+    await pagina.waitForSelector('dialog.pannello[open]');
+    await pagina.click('dialog button:has-text("Modifica scheda")');
+    await pagina.waitForSelector('dialog input[name="nomeCliente"]');
+    assert((await pagina.locator('dialog input[name="confermaWhatsapp"]').count()) === 0, 'compare anche in modifica');
+  });
+
+  await ctx.close();
+}
+
+{
+  const db = nuovoDb();          // WhatsApp non configurato
+  const ctx = await browser.newContext(PC);
+  const pagina = await ctx.newPage();
+  await collega(pagina, db);
+  await entra(pagina, 'tiziana');
+  await pagina.goto(`${BASE}?vista=giorno&giorno=${OGGI}`, { waitUntil: 'networkidle' });
+  await pagina.waitForSelector('.agenda .persona');
+
+  await prova('finché WhatsApp non è configurato la casella non compare', async () => {
+    await nuovoAppuntamento(pagina);
+    assert((await pagina.locator('dialog input[name="confermaWhatsapp"]').count()) === 0, 'compare');
+  });
+
+  await ctx.close();
+}
+
+{
+  const db = nuovoDb();
+  db.whatsapp = true;
+  const ctx = await browser.newContext(TELEFONO);
+  const pagina = await ctx.newPage();
+  await collega(pagina, db);
+  await entra(pagina, 'michele');
+
+  await prova('quando un tecnico si carica un lavoro, niente conferma', async () => {
+    await pagina.click('button:has-text("Aggiungi un intervento mio")');
+    await pagina.waitForSelector('dialog.pannello[open]');
+    assert((await pagina.locator('dialog input[name="confermaWhatsapp"]').count()) === 0, 'la casella c\'è anche per il tecnico');
+  });
+
   await ctx.close();
 }
 

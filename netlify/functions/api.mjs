@@ -22,6 +22,7 @@ import { verifica, cifra, bruciaTempo, LUNGHEZZA_MINIMA } from '../lib/password.
 import { avvisa, chiavePubblica, conNotificheAttive } from '../lib/push.mjs';
 import { titoliCambioTecnico } from '../lib/avvisi.mjs';
 import { segnaCambiamento, leggiBattito } from '../lib/battito.mjs';
+import { whatsappAttivo, mandaConferma } from '../lib/whatsapp.mjs';
 import {
   FASCE, ORA_INIZIO, ORA_FINE, PASSO_MINUTI, GIORNI_LAVORATIVI,
   DIRETTA_DALLE, DIRETTA_ALLE,
@@ -721,7 +722,15 @@ async function postAppuntamento(req, utente) {
 
   const creato = await leggiAppuntamento(id);
   await notifica('Nuovo intervento', creato, utente, { anche: await ancheGliAdmin(utente) });
-  return risposta({ appuntamento: perIlBrowser(creato) }, 201);
+
+  // La conferma su WhatsApp la manda solo l'appuntamento fissato da Tiziana,
+  // e solo se ha lasciato la casella spuntata: è lì che si registra che il
+  // cliente è d'accordo, ed è lì che la si toglie quando l'orario è ancora
+  // provvisorio. Va dopo il salvataggio e non lo può far fallire.
+  const whatsapp = utente.ruolo === 'admin' && corpo?.confermaWhatsapp === true
+    ? await mandaConferma(creato)
+    : null;
+  return risposta({ appuntamento: perIlBrowser(creato), whatsapp }, 201);
 }
 
 async function patchAppuntamento(req, id, utente) {
@@ -1021,6 +1030,8 @@ async function instrada(req, url, percorso, metodo) {
       // codice del pannello per lo stesso motivo delle fasce: un orario si
       // cambia in un posto solo.
       diretta: { dalle: DIRETTA_DALLE, alle: DIRETTA_ALLE, giorni: GIORNI_LAVORATIVI },
+      // Se è falso il pannello non mostra nemmeno la casella della conferma.
+      whatsapp: whatsappAttivo(),
       chiavePush: chiavePubblica(),
       versione: versioneInLinea(),
     });
