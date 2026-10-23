@@ -28,7 +28,7 @@ import {
   TENTATIVI_MASSIMI, FINESTRA_TENTATIVI_MINUTI, versioneInLinea,
 } from '../lib/configurazione.mjs';
 import {
-  validaAppuntamento, validaSpostamento, validaRicontatto,
+  validaAppuntamento, validaSpostamento, validaRicontatto, validaNuovaDataRicontatto,
   centesimiInPrezzo, telefonoPerChiamata, dataValida,
 } from '../lib/validazione.mjs';
 import { dataEstesa, oggi, meseValido, intervalloMese } from '../lib/calendario.mjs';
@@ -579,9 +579,6 @@ async function cercaNelloStorico(testo) {
 // non escono mai verso i tecnici: si leggono solo attraverso
 // TABELLE_RICONTATTI e solo dalla persona che li ha scritti.
 
-/** Quanto indietro si tengono in vista i ricontatti già fatti. */
-const GIORNI_FATTI_IN_VISTA = 60;
-
 function ricontattoPerIlBrowser(riga) {
   return {
     id: riga.id,
@@ -608,18 +605,17 @@ async function leggiRicontatto(id, utente) {
 }
 
 /**
- * Tutti quelli ancora da fare, di qualunque data — anche fra un anno, che è
- * il motivo per cui esistono — più i fatti degli ultimi due mesi.
+ * Tutti quelli in programma, di qualunque data — anche fra un anno, che è il
+ * motivo per cui esistono. Un ricontatto finisce in due modi soli: si sposta
+ * più avanti o si elimina. Non c'è un "fatto" da tenere in vista.
  */
 async function getRicontatti(utente) {
   const righe = await sql().query(
     `SELECT ${SELEZIONE} ${TABELLE_RICONTATTI}
-     WHERE a.assegnato_a = $1
-       AND (a.stato = 'attivo'
-            OR (a.stato = 'fatto' AND a.fatto_il > now() - ($2::int * interval '1 day')))
+     WHERE a.assegnato_a = $1 AND a.stato = 'attivo'
      ORDER BY a.data, a.ora NULLS FIRST, a.id
-     LIMIT 500`,
-    [utente.id, GIORNI_FATTI_IN_VISTA],
+     LIMIT 1000`,
+    [utente.id],
   );
   return risposta({ ricontatti: righe.map(ricontattoPerIlBrowser) });
 }
@@ -657,25 +653,39 @@ async function patchRicontatto(req, id, utente) {
   return risposta({ ricontatto: ricontattoPerIlBrowser(await leggiRicontatto(id, utente)) });
 }
 
-async function postRicontattoFatto(req, id, utente) {
+/**
+ * «Richiama più avanti»: dopo la telefonata il ricontatto si sposta alla
+ * prossima volta. Cambia solo la data: nome, numero, note e ora restano.
+ * L'avviso riparte da sé, perché il segno dei promemoria contiene la data.
+ */
+async function postRicontattoSposta(req, id, utente) {
   if (!(await leggiRicontatto(id, utente))) return errore('Ricontatto non trovato', 404);
-  const fatto = (await leggiJson(req))?.fatto !== false;
+  const { valori, errori } = validaNuovaDataRicontatto(await leggiJson(req), oggi());
+  if (Object.keys(errori).length > 0) {
+    return risposta({ errore: 'Controlla la data', campi: errori }, 400);
+  }
   await sql().query(
-    `UPDATE appuntamenti SET stato = $1, fatto_il = $2, aggiornato_il = now()
-     WHERE id = $3 AND tipo = 'ricontatto' AND assegnato_a = $4`,
-    [fatto ? 'fatto' : 'attivo', fatto ? new Date().toISOString() : null, id, utente.id],
+    `UPDATE appuntamenti SET data = $1, aggiornato_il = now()
+     WHERE id = $2 AND tipo = 'ricontatto' AND assegnato_a = $3`,
+    [valori.data, id, utente.id],
   );
   return risposta({ ricontatto: ricontattoPerIlBrowser(await leggiRicontatto(id, utente)) });
 }
 
-async function postRicontattoAnnulla(id, utente) {
-  if (!(await leggiRicontatto(id, utente))) return errore('Ricontatto non trovato', 404);
-  await sql().query(
-    `UPDATE appuntamenti SET stato = 'annullato', fatto_il = NULL, aggiornato_il = now()
-     WHERE id = $1 AND tipo = 'ricontatto' AND assegnato_a = $2`,
+/**
+ * «Elimina»: il cliente non rinnova e non c'è più niente da richiamare.
+ * Qui si cancella davvero, non si segna come annullato: un numero di telefono
+ * che non serve più non ha motivo di restare nel database.
+ */
+async function deleteRicontatto(id, utente) {
+  const righe = await sql().query(
+    `DELETE FROM appuntamenti
+     WHERE id = $1 AND tipo = 'ricontatto' AND assegnato_a = $2
+     RETURNING id`,
     [id, utente.id],
   );
-  return risposta({ annullato: true, id });
+  if (righe.length === 0) return errore('Ricontatto non trovato', 404);
+  return risposta({ eliminato: true, id });
 }
 
 async function postAppuntamento(req, utente) {
@@ -1097,12 +1107,12 @@ async function instrada(req, url, percorso, metodo) {
     if (utente.ruolo !== 'admin') return errore('Riservato all\'amministratore', 403);
     if (percorso === '/ricontatti' && metodo === 'GET') return await getRicontatti(utente);
     if (percorso === '/ricontatti' && metodo === 'POST') return await postRicontatto(req, utente);
-    const uno = /^\/ricontatti\/(\d+)(?:\/(fatto|annulla))?$/.exec(percorso);
+    const uno = /^\/ricontatti\/(\d+)(?:\/(sposta))?$/.exec(percorso);
     if (uno) {
       const id = Number(uno[1]);
       if (!uno[2] && metodo === 'PATCH') return await patchRicontatto(req, id, utente);
-      if (uno[2] === 'fatto' && metodo === 'POST') return await postRicontattoFatto(req, id, utente);
-      if (uno[2] === 'annulla' && metodo === 'POST') return await postRicontattoAnnulla(id, utente);
+      if (!uno[2] && metodo === 'DELETE') return await deleteRicontatto(id, utente);
+      if (uno[2] === 'sposta' && metodo === 'POST') return await postRicontattoSposta(req, id, utente);
     }
     return errore('Indirizzo non trovato', 404);
   }

@@ -416,6 +416,27 @@ chi richiamare e quando. Sono righe della stessa tabella con
 - li vede **solo chi li ha scritti**, e solo l'amministratore (`/api/ricontatti`
   risponde 403 ai tecnici).
 
+La scheda ha a sinistra un **calendarietto** (puntino nei giorni con qualcuno
+da richiamare, arancione se scaduto; toccando un giorno vuoto si crea un
+ricontatto per quel giorno) con il riepilogo, e a destra l'**elenco giorno per
+giorno**, con gli scaduti in cima. La larghezza è limitata: una riga che va da
+un bordo all'altro di uno schermo grande è una striscia vuota.
+
+**Dopo la telefonata un ricontatto finisce in due modi soli**, dal pulsante
+«Chiamato»:
+
+- **Richiama più avanti** (il cliente ha rinnovato): domani, fra una settimana,
+  un mese, 6 mesi, un anno, o una data a scelta, contati da oggi. Si sposta lo
+  **stesso** ricontatto (`POST /api/ricontatti/:id/sposta`): nome, numero, note
+  e ora restano. Se la scelta rapida cade di sabato o domenica va al **lunedì**,
+  perché il negozio è chiuso. Il promemoria riparte da sé, perché il suo segno
+  contiene la data.
+- **Elimina** (non ha rinnovato): dopo una conferma la riga si **cancella davvero**
+  (`DELETE /api/ricontatti/:id`), non si segna come annullata. Un numero che
+  non serve più non ha motivo di restare.
+
+Non c'è un «fatto»: con questi due esiti non c'è niente da archiviare.
+
 Perché non «Tiziana come installatrice»: sarebbe diventata una colonna in
 agenda in mezzo ai lavori dei tecnici, e un'opzione nei loro menu «Passa a…».
 

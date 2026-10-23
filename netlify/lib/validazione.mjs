@@ -217,3 +217,16 @@ export function validaRicontatto(corpo) {
 
   return { valori, errori };
 }
+
+/**
+ * La data a cui spostare un ricontatto dopo la telefonata («richiama più
+ * avanti»). Deve essere oggi o dopo: un ricontatto rimandato nel passato
+ * diventerebbe subito uno scaduto, ed è quasi certamente un errore di battitura.
+ */
+export function validaNuovaDataRicontatto(corpo, oggiISO) {
+  const data = testo(corpo?.data);
+  if (!data) return { errori: { data: 'Campo obbligatorio' } };
+  if (!dataValida(data)) return { errori: { data: 'Data non valida' } };
+  if (data < oggiISO) return { errori: { data: 'Scegli oggi o un giorno successivo' } };
+  return { valori: { data }, errori: {} };
+}

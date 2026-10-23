@@ -13,6 +13,7 @@ import { FASCE, fasciaValida, GIORNI_LAVORATIVI, VERSIONE_PANNELLO } from '../ne
 import {
   prezzoInCentesimi, centesimiInPrezzo, dataValida, normalizzaOra,
   telefonoPerChiamata, validaAppuntamento, validaSpostamento, validaRicontatto,
+  validaNuovaDataRicontatto,
 } from '../netlify/lib/validazione.mjs';
 import {
   piuGiorni, lunedi, giornoSettimana, dataEstesa, intervalloSettimana,
@@ -445,6 +446,16 @@ describe('ricontatti', () => {
     }
   });
 
+  test('«richiama più avanti» accetta oggi o dopo, mai il passato', () => {
+    const oggi = '2026-10-23';
+    assert.deepEqual(validaNuovaDataRicontatto({ data: '2027-10-23' }, oggi).errori, {});
+    assert.deepEqual(validaNuovaDataRicontatto({ data: oggi }, oggi).errori, {});
+    assert.ok(validaNuovaDataRicontatto({ data: '2026-10-22' }, oggi).errori.data,
+      'spostato nel passato diventerebbe subito uno scaduto');
+    assert.ok(validaNuovaDataRicontatto({ data: '23/10/2027' }, oggi).errori.data);
+    assert.ok(validaNuovaDataRicontatto({}, oggi).errori.data);
+  });
+
   test('non chiede indirizzo né prezzo', () => {
     const { errori } = validaRicontatto(buono);
     assert.ok(!errori.luogoImpianto && !errori.prezzoConcordato);
@@ -480,7 +491,7 @@ describe('i ricontatti non arrivano ai tecnici', () => {
     const blocco = api.slice(inizio, api.indexOf('\n  }\n', inizio));
     const controllo = blocco.indexOf("utente.ruolo !== 'admin'");
     assert.ok(controllo > 0, 'i ricontatti non controllano il ruolo');
-    for (const funzione of ['getRicontatti', 'postRicontatto', 'patchRicontatto', 'postRicontattoFatto', 'postRicontattoAnnulla']) {
+    for (const funzione of ['getRicontatti', 'postRicontatto', 'patchRicontatto', 'postRicontattoSposta', 'deleteRicontatto']) {
       const dove = blocco.indexOf(funzione);
       assert.ok(dove > controllo, `${funzione} viene chiamata prima del controllo sul ruolo`);
     }
@@ -489,8 +500,8 @@ describe('i ricontatti non arrivano ai tecnici', () => {
   test('le scritture sugli interventi non possono toccare un ricontatto', async () => {
     const { readFile } = await import('node:fs/promises');
     const api = await readFile(new URL('../netlify/functions/api.mjs', import.meta.url), 'utf8');
-    for (const m of api.matchAll(/UPDATE appuntamenti[^`]*`/g)) {
-      assert.match(m[0], /tipo = '(intervento|ricontatto)'/, `UPDATE senza tipo: ${m[0].slice(0, 90)}`);
+    for (const m of api.matchAll(/(UPDATE|DELETE FROM) appuntamenti[^`]*`/g)) {
+      assert.match(m[0], /tipo = '(intervento|ricontatto)'/, `${m[1]} senza tipo: ${m[0].slice(0, 90)}`);
     }
   });
 });

@@ -1447,109 +1447,264 @@ dialog.conferma .avviso { margin-bottom: 1rem; color: var(--pericolo); }
 /* ------------------------------------------------------------------ */
 /* Ricontatti                                                          */
 /* ------------------------------------------------------------------ */
+/* A sinistra un calendarietto con il riepilogo, a destra l'elenco giorno per
+   giorno. La larghezza è limitata apposta: su uno schermo grande una riga che
+   va da un bordo all'altro è una striscia bianca vuota, ed era proprio quello
+   che rendeva brutta la prima versione. */
 
 .ricontatti {
-  max-width: calc(var(--agenda-massima) + 2.5rem);
+  display: grid;
+  grid-template-columns: 300px minmax(0, 1fr);
+  gap: 1.25rem;
+  align-items: start;
+  max-width: 1240px;
   margin: 0 auto;
-  padding: 0 0 2.5rem;
+  padding: 0 1.25rem 3rem;
 }
-.ricontatti > .vuoto { margin: 1rem 1.25rem; }
 
-.gruppo-ricontatti { margin: 0 1.25rem 1.4rem; }
-.gruppo-ricontatti h2 {
+.carta-ricontatti {
+  position: sticky;
+  top: 1rem;
+  padding: 1rem;
+  border: 1px solid var(--linea);
+  border-radius: 16px;
+  background: var(--superficie);
+}
+
+.mini-calendario .testa-mese {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  margin: 0 0 0.6rem;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+}
+.mini-calendario .testa-mese .pulsante.icona { width: 32px; min-width: 32px; min-height: 32px; border-color: transparent; }
+.griglia-mese { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; text-align: center; }
+.griglia-mese .testata { padding: 0.2rem 0; font-size: 11px; font-weight: 700; color: var(--testo-secondario); }
+.griglia-mese .g {
+  position: relative;
+  height: 34px;
+  border: 0;
+  border-radius: 9px;
+  background: none;
+  color: var(--testo);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+.griglia-mese .g:hover { background: var(--fondo); }
+.griglia-mese .g.fuori { color: #b8bbcc; }
+.griglia-mese .g.oggi { background: var(--blu); color: #fff; font-weight: 600; }
+.griglia-mese .g.pieno::after,
+.griglia-mese .g.scaduto::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: 4px;
+  width: 5px;
+  height: 5px;
+  margin-left: -2.5px;
+  border-radius: 50%;
+  background: var(--blu);
+}
+.griglia-mese .g.oggi.pieno::after { background: #fff; }
+.griglia-mese .g.scaduto::after { background: #d9822b; }
+
+.riepilogo-ricontatti {
+  display: grid;
+  gap: 0.45rem;
+  margin-top: 0.9rem;
+  padding-top: 0.9rem;
+  border-top: 1px solid var(--linea-leggera);
   font-size: 14px;
+}
+.riga-riepilogo { display: flex; justify-content: space-between; }
+.riga-riepilogo.scaduti { color: #a35a00; }
+
+.salta-data { display: grid; gap: 0.3rem; margin-top: 0.9rem; font-size: 13px; color: var(--testo-secondario); }
+.salta-data input {
+  min-height: 38px;
+  padding: 0 0.6rem;
+  border: 1px solid var(--linea);
+  border-radius: 10px;
+  font: inherit;
+  color: var(--testo);
+}
+
+.elenco-ricontatti ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.45rem; }
+.elenco-ricontatti > .vuoto { margin: 0.5rem 0; }
+
+.blocco-scaduti {
+  margin-bottom: 1.3rem;
+  padding: 0.8rem 0.8rem 0.85rem;
+  border: 1px solid var(--urgente-bordo);
+  border-radius: 16px;
+  background: var(--urgente-fondo);
+}
+.blocco-scaduti h2 {
+  margin: 0 0 0.55rem 0.2rem;
+  font-size: 13px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--urgente-testo);
+}
+.blocco-scaduti .voce-ricontatto { border-color: var(--urgente-bordo); }
+
+.mese-ricontatti {
+  margin: 1.4rem 0 0.6rem 0.2rem;
+  font-size: 13px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--testo-secondario);
+}
+
+.giorno-ricontatti { margin-bottom: 1.1rem; scroll-margin-top: 1rem; border-radius: 16px; }
+.giorno-ricontatti.evidenziato { animation: lampeggia 1.4s ease-out; }
+@keyframes lampeggia { from { box-shadow: 0 0 0 6px rgba(46, 49, 146, 0.18); } to { box-shadow: 0 0 0 6px rgba(46, 49, 146, 0); } }
+.testa-giorno { display: flex; align-items: baseline; gap: 0.6rem; margin: 0 0 0.5rem 0.2rem; }
+.numero-giorno { font-size: 26px; font-weight: 700; line-height: 1; }
+.nome-giorno { font-weight: 600; }
+.quando-manca { font-size: 14px; color: var(--testo-secondario); }
+.distintivo {
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  background: var(--blu);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.voce-ricontatto {
+  position: relative;
+  display: grid;
+  grid-template-columns: 82px minmax(0, 1fr) auto auto;
+  gap: 0.9rem;
+  align-items: center;
+  padding: 0.55rem 0.7rem 0.55rem 1rem;
+  border: 1px solid var(--linea);
+  border-radius: 14px;
+  background: var(--superficie);
+}
+.voce-ricontatto.con-menu { z-index: 5; }
+.voce-ricontatto .quando { display: flex; flex-direction: column; gap: 0.1rem; }
+.voce-ricontatto .quando .giorno { font-size: 12px; font-weight: 600; color: var(--urgente-testo); }
+.voce-ricontatto .ora { font-weight: 600; }
+.voce-ricontatto .ora.in-giornata {
+  font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--testo-secondario);
 }
-.gruppo-ricontatti h2 .quanti {
-  min-width: 22px;
-  padding: 0.1rem 0.45rem;
-  border-radius: 999px;
-  background: var(--linea);
-  color: var(--testo);
-  font-size: 12px;
-  text-align: center;
-  letter-spacing: 0;
-}
-.gruppo-ricontatti .elenco { padding: 0; }
-.gruppo-ricontatti .spiega { margin: -0.2rem 0 0.7rem; font-size: 13px; }
-
-/* Gli scaduti sono quelli da non perdere: si fanno notare come i
-   "passati e mai chiusi" dello storico. */
-.gruppo-ricontatti.scaduti {
-  padding: 0.9rem 1rem 1rem;
-  border: 1px solid var(--urgente-bordo);
-  border-radius: 14px;
-  background: var(--urgente-fondo);
-}
-.gruppo-ricontatti.scaduti h2,
-.gruppo-ricontatti.scaduti .spiega { color: var(--urgente-testo); }
-.gruppo-ricontatti.scaduti h2 .quanti { background: var(--urgente-testo); color: #fff; }
-
-.voce.ricontatto {
-  grid-template-columns: 5.5rem 1fr auto auto;
-  align-items: center;
-  gap: 0.75rem;
-}
-.voce.ricontatto .quando {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  padding-top: 0;
-  gap: 0.1rem;
-}
-.voce.ricontatto .quando .giorno {
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.03em;
-  text-transform: uppercase;
-  color: var(--testo-secondario);
-}
-.voce.ricontatto .quando .ora { font-size: 16px; font-weight: 600; }
-
-.voce.ricontatto .apri {
-  display: block;
-  width: 100%;
+.voce-ricontatto .apri {
   min-height: 44px;
-  padding: 0.7rem 0.95rem;
-  border: 1px solid var(--linea);
-  border-radius: 14px;
-  background: var(--superficie);
+  padding: 0.25rem 0;
+  border: 0;
+  background: none;
   font: inherit;
   color: inherit;
   text-align: left;
   cursor: pointer;
 }
-.voce.ricontatto .apri:hover { background: var(--fondo); }
-.voce.ricontatto .apri .chi { display: block; font-weight: 600; }
-.voce.ricontatto .apri .nota {
+.voce-ricontatto .apri:hover .chi { text-decoration: underline; }
+.voce-ricontatto .chi { display: block; font-weight: 600; }
+.voce-ricontatto .nota {
   display: block;
-  margin-top: 0.15rem;
   font-size: 13px;
   color: var(--testo-secondario);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.voce.ricontatto .numero { font-weight: 600; white-space: nowrap; }
-.voce.ricontatto.scaduto .apri { border-color: var(--urgente-bordo); }
-.voce.ricontatto.conclusa .apri { background: var(--fatto-fondo); border-color: var(--fatto-bordo); }
-.voce.ricontatto.conclusa .apri .chi { color: var(--testo-secondario); text-decoration: line-through; }
+.voce-ricontatto .numero {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-weight: 600;
+  color: var(--blu);
+  white-space: nowrap;
+  text-decoration: none;
+}
+.voce-ricontatto .numero svg { width: 15px; height: 15px; }
+.voce-ricontatto .chiamato { white-space: nowrap; }
+.voce-ricontatto .chiamato[aria-expanded="true"] { background: var(--fondo); }
+
+.menu-chiamato {
+  position: absolute;
+  right: 0.7rem;
+  top: calc(100% + 4px);
+  width: min(330px, calc(100vw - 2rem));
+  padding: 0.35rem;
+  border: 1px solid var(--linea);
+  border-radius: 14px;
+  background: var(--superficie);
+  box-shadow: 0 14px 34px rgba(23, 25, 51, 0.18);
+}
+.menu-chiamato .voce-menu {
+  display: flex;
+  gap: 0.7rem;
+  align-items: flex-start;
+  width: 100%;
+  padding: 0.6rem 0.7rem;
+  border: 0;
+  border-radius: 10px;
+  background: none;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+}
+.menu-chiamato .voce-menu strong { display: block; }
+.menu-chiamato .voce-menu small { display: block; font-size: 12.5px; color: var(--testo-secondario); }
+.menu-chiamato .segno {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: var(--pericolo-chiaro);
+  color: var(--pericolo);
+  font-weight: 700;
+}
+.menu-chiamato .segno.richiama { background: #ecedf8; color: var(--blu); }
+.menu-chiamato .scelte { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-top: 0.5rem; }
+.menu-chiamato .scelta {
+  padding: 0.25rem 0.65rem;
+  border: 1px solid var(--linea);
+  border-radius: 999px;
+  background: var(--superficie);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+.menu-chiamato .scelta:hover { border-color: var(--blu); color: var(--blu); }
+.menu-chiamato .altra-data { display: flex; gap: 0.4rem; margin-top: 0.5rem; }
+.menu-chiamato .altra-data input {
+  flex: 1;
+  min-height: 34px;
+  padding: 0 0.5rem;
+  border: 1px solid var(--linea);
+  border-radius: 9px;
+  font: inherit;
+}
+.menu-chiamato .altra-data .pulsante { min-height: 34px; }
+.menu-chiamato .elimina { cursor: pointer; border-top: 1px solid var(--linea-leggera); border-radius: 0 0 10px 10px; }
+.menu-chiamato .elimina:hover { background: var(--pericolo-chiaro); }
+.menu-chiamato .elimina strong { color: var(--pericolo); }
+
+/* L'avviso volante quando è andato tutto bene. */
+.avviso.esito { border-color: var(--fatto); background: #e3f2ef; color: var(--fatto); }
 
 /* Nel modulo, "Elimina" resta piccolo e a sinistra, lontano da "Salva":
    gli altri pulsanti del piede si allargano, lui no. */
 dialog.pannello .piede .pulsante.pericolo { flex: 0 0 auto; margin-right: auto; }
 
-@media (max-width: 720px) {
-  .voce.ricontatto { grid-template-columns: 4.5rem 1fr; }
-  .voce.ricontatto .numero,
-  .voce.ricontatto > .pulsante { grid-column: 2; justify-self: start; }
+@media (max-width: 860px) {
+  .ricontatti { grid-template-columns: 1fr; }
+  .carta-ricontatti { position: static; }
+  .voce-ricontatto { grid-template-columns: 4.5rem minmax(0, 1fr); }
+  .voce-ricontatto .numero,
+  .voce-ricontatto .chiamato { grid-column: 2; justify-self: start; }
+  .menu-chiamato { right: auto; left: 0; }
 }
 
 /* Con il selettore di data la barra del Giorno non sta più in una riga su un
@@ -1557,4 +1712,15 @@ dialog.pannello .piede .pulsante.pericolo { flex: 0 0 auto; margin-right: auto; 
    più sacrificabile: i blocchi dicono già da soli "Urgente" e "Fatto". */
 @media (max-width: 1500px) {
   .strumenti .legenda { display: none; }
+}
+
+/* La barra di Tiziana sul telefono: le telefonate dei ricontatti si fanno da
+   lì, quindi il pannello deve stare nello schermo. Via il nome del negozio e
+   "Tiziana · Amministratore", che sul telefono si sa già chi è. */
+@media (max-width: 720px) {
+  .barra { gap: 0.6rem; padding: 0 0.75rem; }
+  .barra .negozio,
+  .barra .separatore,
+  .barra .chi { display: none; }
+  .barra .destra { gap: 0.5rem; }
 }

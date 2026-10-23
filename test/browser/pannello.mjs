@@ -180,7 +180,7 @@ async function collega(pagina, db) {
         db.righe.push(r);
         return j({ ricontatto: r }, 201);
       }
-      const m = /^\/ricontatti\/(\d+)(?:\/(fatto|annulla))?$/.exec(p);
+      const m = /^\/ricontatti\/(\d+)(?:\/(sposta))?$/.exec(p);
       const r = m && suoiRicontatti().find((x) => x.id === Number(m[1]));
       if (!r) return j({ errore: 'Ricontatto non trovato' }, 404);
       if (!m[2] && metodo === 'PATCH') {
@@ -190,12 +190,16 @@ async function collega(pagina, db) {
           data: corpo.data, ora: corpo.ora || null, note: corpo.note ?? '' });
         return j({ ricontatto: r });
       }
-      if (m[2] === 'fatto') {
-        const f = corpo.fatto !== false;
-        Object.assign(r, { stato: f ? 'fatto' : 'attivo', fatto: f, fattoAlle: f ? '12:00' : null });
+      if (m[2] === 'sposta' && metodo === 'POST') {
+        if (!corpo.data || corpo.data < OGGI) return j({ errore: 'Controlla la data', campi: { data: 'Scegli oggi o un giorno successivo' } }, 400);
+        r.data = corpo.data;
         return j({ ricontatto: r });
       }
-      if (m[2] === 'annulla') { r.stato = 'annullato'; return j({ annullato: true }); }
+      if (!m[2] && metodo === 'DELETE') {
+        // Come l'API vera: si cancella davvero, non si segna come annullato.
+        db.righe.splice(db.righe.indexOf(r), 1);
+        return j({ eliminato: true, id: r.id });
+      }
     }
     return j({ errore: 'Indirizzo non trovato' }, 404);
   });
@@ -280,6 +284,18 @@ console.log('\nTIZIANA · CALENDARIO\n');
 
 // =============================================================== RICONTATTI
 console.log('\nTIZIANA · RICONTATTI\n');
+
+// Le stesse regole del pannello, scritte qui per conto loro: se il pannello
+// sbagliasse un conto, la prova non lo ripeterebbe uguale.
+const piuMesiData = (iso, n) => {
+  const [a, m, g] = iso.split('-').map(Number);
+  const d = new Date(Date.UTC(a, m - 1 + n, 1));
+  const ultimo = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0)).getUTCDate();
+  d.setUTCDate(Math.min(g, ultimo));
+  return d.toISOString().slice(0, 10);
+};
+const apertura = (iso) => { const g = isoGiorno(iso); return g >= 6 ? giorniDa(iso, 8 - g) : iso; };
+
 {
   const db = nuovoDb();
   const ctx = await browser.newContext(PC);
@@ -299,74 +315,150 @@ console.log('\nTIZIANA · RICONTATTI\n');
     if (note) await pagina.fill('dialog textarea[name="note"]', note);
     await pagina.click('dialog button:has-text("Salva ricontatto")');
   };
+  const riga = (nome) => pagina.locator(`.voce-ricontatto:has-text("${nome}")`);
+  const apriMenu = async (nome) => {
+    await riga(nome).locator('.chiamato').click();
+    await pagina.waitForSelector('.menu-chiamato');
+  };
 
-  await prova('vuota, la scheda spiega a cosa serve', async () => {
-    const testo = await pagina.locator('.ricontatti .vuoto').innerText();
-    assert(contiene(testo, 'chi richiamare'), testo);
+  await prova('vuota, spiega a cosa serve e mostra il calendario', async () => {
+    assert(contiene(await pagina.locator('.elenco-ricontatti .vuoto').innerText(), 'chi richiamare'), 'manca la spiegazione');
+    assert(await pagina.locator('.mini-calendario').isVisible(), 'manca il calendario');
+    assert(await pagina.locator('.griglia-mese .g.oggi').count() === 1, 'oggi non è segnato');
   });
 
-  await prova('un ricontatto senza ora finisce in «Oggi», «in giornata»', async () => {
+  await prova('un ricontatto senza ora va sotto oggi, «in giornata»', async () => {
     await salvaRicontatto({ nome: 'Mario Greco', data: OGGI });
-    await pagina.waitForSelector('dialog.pannello', { state: 'detached' });
-    await pagina.waitForSelector('.gruppo-ricontatti:has-text("Oggi") .voce:has-text("Mario Greco")');
-    const voce = await pagina.locator('.voce:has-text("Mario Greco")').innerText();
-    assert(contiene(voce, 'in giornata'), voce);
+    await pagina.waitForSelector(`#ricontatti-${OGGI} .voce-ricontatto:has-text("Mario Greco")`);
+    assert(contiene(await riga('Mario Greco').innerText(), 'in giornata'), 'non dice «in giornata»');
+    assert(contiene(await pagina.locator(`#ricontatti-${OGGI} .testa-giorno`).innerText(), 'oggi'), 'manca «Oggi»');
   });
 
   await prova('con l\'ora, l\'ora si vede', async () => {
-    await salvaRicontatto({ nome: 'Anna Folino', data: OGGI, ora: '16:30' });
-    await pagina.waitForSelector('.voce:has-text("Anna Folino")');
-    assert(contiene(await pagina.locator('.voce:has-text("Anna Folino")').innerText(), '16:30'), 'ora mancante');
+    await salvaRicontatto({ nome: 'Anna Folino', data: OGGI, ora: '16:30', note: 'scade Sky a novembre' });
+    await pagina.waitForSelector('.voce-ricontatto:has-text("Anna Folino")');
+    assert(contiene(await riga('Anna Folino').innerText(), '16:30'), 'ora mancante');
+    assert(contiene(await riga('Anna Folino').innerText(), 'scade Sky'), 'nota mancante');
   });
 
-  await prova('quelli fra un anno stanno sotto il loro mese', async () => {
-    await salvaRicontatto({ nome: 'Rocco Paolino', data: FRA_UN_ANNO, note: 'scade il contratto Sky' });
-    await pagina.waitForSelector('.voce:has-text("Rocco Paolino")');
-    const gruppo = pagina.locator('.gruppo-ricontatti', { has: pagina.locator('.voce:has-text("Rocco Paolino")') });
-    const titolo = await gruppo.locator('h2').innerText();
-    assert(titolo.includes(FRA_UN_ANNO.slice(0, 4)), `gruppo: ${titolo}`);
-    assert(contiene(await pagina.locator('.voce:has-text("Rocco Paolino")').innerText(), 'scade il contratto'),
-      'la nota non si vede');
+  await prova('quelli fra un anno stanno sotto l\'intestazione del loro mese', async () => {
+    await salvaRicontatto({ nome: 'Rocco Paolino', data: FRA_UN_ANNO });
+    await pagina.waitForSelector(`#ricontatti-${FRA_UN_ANNO}`);
+    const mesi = await pagina.locator('.mese-ricontatti').allInnerTexts();
+    assert(mesi.some((m) => m.includes(FRA_UN_ANNO.slice(0, 4))), `intestazioni: ${mesi.join(', ')}`);
   });
 
   await prova('il numero si chiama con un tocco', async () => {
-    const href = await pagina.locator('.voce:has-text("Mario Greco") .numero').getAttribute('href');
+    const href = await riga('Mario Greco').locator('.numero').getAttribute('href');
     assert(href?.startsWith('tel:+39'), `link: ${href}`);
+  });
+
+  await prova('non c\'è più nessun pulsante «Fatto»', async () => {
+    assert((await pagina.locator('.elenco-ricontatti button:has-text("Fatto")').count()) === 0, 'c\'è ancora');
   });
 
   await prova('un numero sbagliato viene segnalato e il modulo resta aperto', async () => {
     await salvaRicontatto({ nome: 'Numero Sbagliato', telefono: '12', data: OGGI });
     await pagina.waitForSelector('dialog [data-campo="telefonoCliente"][data-errore]');
-    assert(await pagina.locator('dialog.pannello[open]').isVisible(), 'il modulo si è chiuso');
     await pagina.click('dialog button:has-text("Annulla")');
     await pagina.waitForSelector('dialog.pannello', { state: 'detached' });
-    assert((await pagina.locator('.voce:has-text("Numero Sbagliato")').count()) === 0, 'salvato lo stesso');
+    assert((await riga('Numero Sbagliato').count()) === 0, 'salvato lo stesso');
   });
 
-  await prova('«Fatto» lo sposta fra i fatti, «Riapri» lo riporta', async () => {
-    await pagina.click('.voce:has-text("Mario Greco") button:has-text("Fatto")');
-    await pagina.waitForSelector('.gruppo-ricontatti.fatti .voce:has-text("Mario Greco")');
-    await pagina.click('.voce:has-text("Mario Greco") button:has-text("Riapri")');
-    await pagina.waitForSelector('.gruppo-ricontatti:not(.fatti) .voce:has-text("Mario Greco")');
+  await prova('«Chiamato» offre i due esiti: richiamare più avanti o eliminare', async () => {
+    await apriMenu('Mario Greco');
+    const testo = await pagina.locator('.menu-chiamato').innerText();
+    for (const voce of ['Richiama più avanti', 'Domani', 'Fra una settimana', 'Fra un mese', 'Fra 6 mesi', 'Fra un anno', 'Elimina']) {
+      assert(contiene(testo, voce), `manca «${voce}»`);
+    }
+    await pagina.keyboard.press('Escape');
+    await pagina.waitForSelector('.menu-chiamato', { state: 'detached' });
   });
 
-  await prova('cliccando la riga si modifica', async () => {
-    await pagina.click('.voce:has-text("Anna Folino") .apri');
+  await prova('nessuna scelta rapida finisce di sabato o di domenica', async () => {
+    await apriMenu('Mario Greco');
+    const date = await pagina.locator('.menu-chiamato .scelta').evaluateAll((b) => b.map((x) => x.dataset.data));
+    for (const d of date) assert(isoGiorno(d) <= 5, `${d} cade nel fine settimana`);
+    assert(date[2] === apertura(piuMesiData(OGGI, 1)), `«fra un mese» = ${date[2]}`);
+    assert(date[4] === apertura(piuMesiData(OGGI, 12)), `«fra un anno» = ${date[4]}`);
+    await pagina.keyboard.press('Escape');
+  });
+
+  await prova('«Fra un mese» sposta il ricontatto e dice dove è finito', async () => {
+    const atteso = apertura(piuMesiData(OGGI, 1));
+    await apriMenu('Mario Greco');
+    await pagina.click('.menu-chiamato .scelta:has-text("Fra un mese")');
+    await pagina.waitForSelector(`#ricontatti-${atteso} .voce-ricontatto:has-text("Mario Greco")`);
+    assert((await pagina.locator(`#ricontatti-${OGGI} .voce-ricontatto:has-text("Mario Greco")`).count()) === 0,
+      'è rimasto anche oggi');
+    const avviso = await pagina.locator('.avviso.esito').innerText();
+    assert(contiene(avviso, 'Mario Greco') && contiene(avviso, 'si richiama'), avviso);
+    assert(db.righe.find((r) => r.nomeCliente === 'Mario Greco').data === atteso, 'non salvato');
+  });
+
+  await prova('con una data a scelta si sposta dove si vuole', async () => {
+    const giorno = giorniDa(OGGI, 40);
+    await apriMenu('Anna Folino');
+    await pagina.fill('.menu-chiamato input[type="date"]', giorno);
+    await pagina.click('.menu-chiamato button:has-text("Sposta")');
+    await pagina.waitForSelector(`#ricontatti-${giorno} .voce-ricontatto:has-text("Anna Folino")`);
+  });
+
+  await prova('«Elimina» chiede conferma: «No» lo lascia dov\'è', async () => {
+    await apriMenu('Rocco Paolino');
+    await pagina.click('.menu-chiamato .elimina');
+    await pagina.waitForSelector('dialog.conferma[open]');
+    assert(contiene(await pagina.locator('dialog.conferma').innerText(), 'Rocco Paolino'), 'non dice chi');
+    await pagina.click('dialog.conferma button:has-text("No")');
+    await pagina.waitForSelector('dialog.conferma', { state: 'detached' });
+    assert(await riga('Rocco Paolino').isVisible(), 'è sparito lo stesso');
+  });
+
+  await prova('confermando si cancella davvero', async () => {
+    await apriMenu('Rocco Paolino');
+    await pagina.click('.menu-chiamato .elimina');
+    await pagina.click('dialog.conferma button.pericolo-pieno');
+    await pagina.waitForSelector('.voce-ricontatto:has-text("Rocco Paolino")', { state: 'detached' });
+    assert(!db.righe.some((r) => r.nomeCliente === 'Rocco Paolino'), 'la riga è rimasta nel database');
+  });
+
+  await prova('cliccando il nome si modifica, e da lì si può eliminare', async () => {
+    await riga('Anna Folino').locator('.apri').click();
     await pagina.waitForSelector('dialog.pannello[open]');
-    assert((await pagina.inputValue('dialog input[name="nomeCliente"]')) === 'Anna Folino', 'valori non caricati');
     assert((await pagina.inputValue('dialog select[name="ora"]')) === '16:30', 'ora non caricata');
     await pagina.fill('dialog textarea[name="note"]', 'preferisce il pomeriggio');
     await pagina.click('dialog button:has-text("Salva modifiche")');
-    await pagina.waitForSelector('dialog.pannello', { state: 'detached' });
-    await pagina.waitForSelector('.voce:has-text("preferisce il pomeriggio")');
+    await pagina.waitForSelector('.voce-ricontatto:has-text("preferisce il pomeriggio")');
   });
 
-  await prova('«Elimina» lo toglie di mezzo', async () => {
-    await pagina.click('.voce:has-text("Anna Folino") .apri');
+  await prova('il calendario segna i giorni con qualcuno da richiamare', async () => {
+    const giorno = apertura(piuMesiData(OGGI, 1));
+    // Il ricontatto di Mario Greco è finito il mese prossimo: si va avanti di uno.
+    await pagina.click('.mini-calendario [aria-label="Mese successivo"]');
+    const titolo = await pagina.locator('.mini-calendario .testa-mese strong').innerText();
+    assert(titolo.includes(giorno.slice(0, 4)), `mese: ${titolo}`);
+    const segnato = pagina.locator(`.griglia-mese .g.pieno[aria-label*="${Number(giorno.slice(8))} "]`);
+    assert(await segnato.count() >= 1, 'il giorno non ha il puntino');
+  });
+
+  await prova('toccando quel giorno l\'elenco ci arriva', async () => {
+    const giorno = apertura(piuMesiData(OGGI, 1));
+    await pagina.locator(`.griglia-mese .g.pieno[aria-label*="${Number(giorno.slice(8))} "]`).first().click();
+    await pagina.waitForSelector(`#ricontatti-${giorno}.evidenziato`);
+  });
+
+  await prova('toccando un giorno vuoto si crea un ricontatto per quel giorno', async () => {
+    const vuoto = await pagina.locator('.griglia-mese .g:not(.pieno):not(.fuori):not(.oggi)').last();
+    await vuoto.click();
     await pagina.waitForSelector('dialog.pannello[open]');
-    await pagina.click('dialog button:has-text("Elimina")');
-    await pagina.waitForSelector('dialog.pannello', { state: 'detached' });
-    await pagina.waitForSelector('.voce:has-text("Anna Folino")', { state: 'detached' });
+    const data = await pagina.inputValue('dialog input[name="data"]');
+    assert(data > OGGI, `data proposta: ${data}`);
+    await pagina.click('dialog button:has-text("Annulla")');
+  });
+
+  await prova('il riepilogo conta giusto', async () => {
+    const testo = await pagina.locator('.riepilogo-ricontatti').innerText();
+    assert(/In programma in tutto\s*2/i.test(testo), testo.replace(/\n/g, ' | '));
   });
 
   await prova('i ricontatti non finiscono nell\'agenda dei tecnici', async () => {
@@ -374,20 +466,19 @@ console.log('\nTIZIANA · RICONTATTI\n');
     await attendiCaricamento(pagina);
     await pagina.waitForSelector('.agenda .persona');
     const testo = await pagina.locator('.agenda').innerText();
-    assert(!contiene(testo, 'Mario Greco'), 'un ricontatto è comparso in agenda');
+    assert(!contiene(testo, 'Mario Greco') && !contiene(testo, 'Anna Folino'), 'un ricontatto è in agenda');
     assert((await pagina.locator('.agenda .intestazione .persona').count()) === 2, 'colonne cambiate');
   });
 
-  if (SCATTI) await pagina.goto(`${BASE}?vista=ricontatti`, { waitUntil: 'networkidle' });
-  if (SCATTI) await pagina.screenshot({ path: `${SCATTI}/ricontatti.png`, fullPage: true });
   await ctx.close();
 }
 
 // --- gli scaduti si fanno notare ---------------------------------------------
 {
   const db = nuovoDb({ ricontatti: [
-    { nome: 'Caterina Nicotera', data: giorniDa(OGGI, -3), ora: '10:00' },
-    { nome: 'Già Chiamato', data: giorniDa(OGGI, -1), fatto: true },
+    { nome: 'Caterina Nicotera', data: giorniDa(OGGI, -3), ora: '10:00', note: 'aspettava il preventivo' },
+    { nome: 'Gino Mastroianni', data: OGGI },
+    { nome: 'Bar Centrale', data: giorniDa(OGGI, 3), ora: '11:00' },
   ] });
   const ctx = await browser.newContext(PC);
   const pagina = await ctx.newPage();
@@ -396,19 +487,50 @@ console.log('\nTIZIANA · RICONTATTI\n');
   await pagina.goto(`${BASE}?vista=ricontatti`, { waitUntil: 'networkidle' });
   await pagina.waitForSelector('.ricontatti');
 
-  await prova('un ricontatto con la data passata sta fra gli «Scaduti»', async () => {
-    assert(await pagina.locator('.gruppo-ricontatti.scaduti .voce:has-text("Caterina Nicotera")').isVisible(),
-      'non è fra gli scaduti');
+  await prova('un ricontatto con la data passata sta fra gli «Scaduti», con il giorno', async () => {
+    const voce = pagina.locator('.blocco-scaduti .voce-ricontatto:has-text("Caterina Nicotera")');
+    assert(await voce.isVisible(), 'non è fra gli scaduti');
+    assert((await voce.locator('.quando .giorno').count()) === 1, 'manca il giorno');
   });
 
-  await prova('uno già fatto, anche se passato, non è uno scaduto', async () => {
-    assert((await pagina.locator('.gruppo-ricontatti.scaduti .voce:has-text("Già Chiamato")').count()) === 0,
-      'un fatto conta come scaduto');
-    assert(await pagina.locator('.gruppo-ricontatti.fatti .voce:has-text("Già Chiamato")').isVisible(),
-      'non è fra i fatti');
+  await prova('il riepilogo li conta, e il calendario li segna diversi', async () => {
+    const testo = await pagina.locator('.riepilogo-ricontatti').innerText();
+    assert(/Scaduti\s*1/i.test(testo) && /Oggi\s*1/i.test(testo), testo.replace(/\n/g, ' | '));
+    if (giorniDa(OGGI, -3).slice(0, 7) === OGGI.slice(0, 7)) {
+      assert(await pagina.locator('.griglia-mese .g.scaduto').count() === 1, 'il giorno scaduto non è segnato');
+    }
   });
 
-  if (SCATTI) await pagina.screenshot({ path: `${SCATTI}/ricontatti-scaduti.png`, fullPage: true });
+  await prova('«fra 3 giorni» accanto ai giorni vicini', async () => {
+    assert(contiene(await pagina.locator(`#ricontatti-${giorniDa(OGGI, 3)} .testa-giorno`).innerText(), 'fra 3 giorni'),
+      'manca quanto manca');
+  });
+
+  if (SCATTI) await pagina.screenshot({ path: `${SCATTI}/ricontatti.png`, fullPage: true });
+  if (SCATTI) {
+    await pagina.locator('.voce-ricontatto:has-text("Gino Mastroianni") .chiamato').click();
+    await pagina.waitForSelector('.menu-chiamato');
+    await pagina.screenshot({ path: `${SCATTI}/ricontatti-menu.png` });
+  }
+  await ctx.close();
+}
+
+// --- sul telefono -------------------------------------------------------------
+{
+  const db = nuovoDb({ ricontatti: [{ nome: 'Gino Mastroianni', data: OGGI, note: 'richiamare per la parabola' }] });
+  const ctx = await browser.newContext(TELEFONO);
+  const pagina = await ctx.newPage();
+  await collega(pagina, db);
+  await entra(pagina, 'tiziana');
+  await pagina.goto(`${BASE}?vista=ricontatti`, { waitUntil: 'networkidle' });
+  await pagina.waitForSelector('.ricontatti');
+
+  await prova('sul telefono di Tiziana niente scorre di lato', async () => {
+    const largo = await pagina.evaluate(() => document.documentElement.scrollWidth);
+    assert(largo <= 390, `la pagina è larga ${largo}px`);
+  });
+
+  if (SCATTI) await pagina.screenshot({ path: `${SCATTI}/ricontatti-telefono.png`, fullPage: true });
   await ctx.close();
 }
 
