@@ -392,6 +392,53 @@ all'amministratore (403 agli altri): nascondere una voce nell'interfaccia non
 Lo storico **non** è fra le viste che si aggiornano da sole: è un archivio, e
 un ridisegno mentre si legge o si cerca darebbe solo fastidio.
 
+### Calendario e ricontatti
+
+Nella barra di Tiziana il pannello si chiama **Calendario**. L'indirizzo resta
+`/appuntamenti`, e l'app installata sui telefoni dei tecnici si chiama ancora
+«Appuntamenti»: cambiare l'indirizzo romperebbe le app già installate, e per
+i tecnici sono appuntamenti davvero.
+
+Accanto alle frecce di Giorno e Settimana c'è un **selettore di data**: si
+fissano appuntamenti anche a un anno di distanza, e sfogliare 52 settimane
+non è un modo di lavorare. Sotto i 1500 px la legenda colori sparisce per
+lasciargli posto (i blocchi dicono già da soli «Urgente» e «Fatto»).
+
+La scheda **Ricontatti** contiene gli appuntamenti personali di Tiziana:
+chi richiamare e quando. Sono righe della stessa tabella con
+`tipo = 'ricontatto'`, ma un'altra cosa rispetto agli interventi:
+
+- solo **nome, telefono, giorno, ora facoltativa, note** — niente indirizzo,
+  prezzo, tecnico, urgenza;
+- **nessun vincolo per fascia**: due telefonate alle 10 si possono avere;
+- **senza ora** l'avviso arriva **alle 9** di quel giorno (`ORA_AVVISO_GIORNATA`),
+  con l'ora arriva un'ora prima come per gli interventi;
+- li vede **solo chi li ha scritti**, e solo l'amministratore (`/api/ricontatti`
+  risponde 403 ai tecnici).
+
+Perché non «Tiziana come installatrice»: sarebbe diventata una colonna in
+agenda in mezzo ai lavori dei tecnici, e un'opzione nei loro menu «Passa a…».
+
+**Come si evita che un ricontatto finisca ai tecnici.** Il filtro non sta in
+ogni query, dove prima o poi se ne dimentica uno: sta in `TABELLE`, cioè nella
+tabella da cui leggono tutte le query degli interventi —
+`FROM (SELECT * FROM appuntamenti WHERE tipo = 'intervento') a`. I ricontatti
+hanno la loro, `TABELLE_RICONTATTI`. Le scritture sugli interventi ripetono
+`tipo = 'intervento'` come secondo lucchetto. `npm test` sorveglia tutto
+questo leggendo il codice dell'API: una query che legge `FROM appuntamenti a`
+senza passare dalle tabelle filtrate, o un `UPDATE` senza tipo, la fa fallire.
+
+La migrazione del database sta in `db/migrazioni/2026-10-ricontatti.sql` ed è
+**compatibile con il pannello precedente**: va lanciata *prima* di pubblicare
+il codice nuovo.
+
+### Prove nel browser
+
+`npm run prova-browser` apre il pannello in Chromium con l'API simulata e
+prova Calendario, Ricontatti e la separazione dai tecnici. Sta in
+`test/browser/` e non in una cartella temporanea: la versione precedente
+viveva fuori dal repository ed è sparita con il container che la ospitava.
+
 ### L'account di prova
 
 Un utente con `nascosto = true` serve a provare notifiche e schermate senza

@@ -9,7 +9,8 @@
     "utenti": "node scripts/db.mjs utenti",
     "esempi": "node scripts/db.mjs esempi",
     "chiavi-push": "node scripts/chiavi-push.mjs",
-    "test": "node --test 'test/*.test.mjs'"
+    "test": "node --test 'test/*.test.mjs'",
+    "prova-browser": "node test/browser/pannello.mjs"
   },
   "dependencies": {
     "@netlify/blobs": "^11.1.3",

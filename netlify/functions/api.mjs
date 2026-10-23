@@ -28,7 +28,7 @@ import {
   TENTATIVI_MASSIMI, FINESTRA_TENTATIVI_MINUTI, versioneInLinea,
 } from '../lib/configurazione.mjs';
 import {
-  validaAppuntamento, validaSpostamento,
+  validaAppuntamento, validaSpostamento, validaRicontatto,
   centesimiInPrezzo, telefonoPerChiamata, dataValida,
 } from '../lib/validazione.mjs';
 import { dataEstesa, oggi, meseValido, intervalloMese } from '../lib/calendario.mjs';
@@ -132,7 +132,15 @@ async function segnaTentativo(chiave) {
 // automatica del driver può spostare un appuntamento di un giorno o di un'ora.
 // Il nome dell'assegnatario arriva da una giunzione, perché serve a ogni vista
 // e chiederlo a parte significherebbe una query per riga.
-const TABELLE = `FROM appuntamenti a LEFT JOIN utenti u ON u.id = a.assegnato_a`;
+//
+// Il filtro sul tipo sta QUI, dentro la tabella da cui si legge, e non in
+// ciascuna query: così ogni lettura degli interventi — agenda, scheda, storico,
+// mucchio — esclude i ricontatti di Tiziana senza doverselo ricordare, e una
+// query scritta domani parte già al sicuro. I ricontatti hanno la loro.
+const TABELLE = `FROM (SELECT * FROM appuntamenti WHERE tipo = 'intervento') a
+  LEFT JOIN utenti u ON u.id = a.assegnato_a`;
+const TABELLE_RICONTATTI = `FROM (SELECT * FROM appuntamenti WHERE tipo = 'ricontatto') a
+  LEFT JOIN utenti u ON u.id = a.assegnato_a`;
 
 const SELEZIONE = `
   a.id,
@@ -563,6 +571,113 @@ async function cercaNelloStorico(testo) {
   });
 }
 
+// ---------------------------------------------------------------------------
+// Ricontatti
+// ---------------------------------------------------------------------------
+// Gli appuntamenti personali di Tiziana: chi richiamare e quando. Stanno
+// nella stessa tabella degli interventi con `tipo = 'ricontatto'`, ma da qui
+// non escono mai verso i tecnici: si leggono solo attraverso
+// TABELLE_RICONTATTI e solo dalla persona che li ha scritti.
+
+/** Quanto indietro si tengono in vista i ricontatti già fatti. */
+const GIORNI_FATTI_IN_VISTA = 60;
+
+function ricontattoPerIlBrowser(riga) {
+  return {
+    id: riga.id,
+    nomeCliente: riga.nome_cliente,
+    telefonoCliente: riga.telefono_cliente,
+    telefonoPerChiamata: telefonoPerChiamata(riga.telefono_cliente),
+    data: riga.data,
+    ora: riga.ora,            // null se è "in giornata"
+    note: riga.note,
+    stato: riga.stato,
+    fatto: riga.stato === 'fatto',
+    fattoAlle: riga.fatto_alle,
+  };
+}
+
+/** Un ricontatto non annullato, purché sia di chi lo chiede. */
+async function leggiRicontatto(id, utente) {
+  const righe = await sql().query(
+    `SELECT ${SELEZIONE} ${TABELLE_RICONTATTI}
+     WHERE a.id = $1 AND a.assegnato_a = $2 AND a.stato <> 'annullato' LIMIT 1`,
+    [id, utente.id],
+  );
+  return righe[0] ?? null;
+}
+
+/**
+ * Tutti quelli ancora da fare, di qualunque data — anche fra un anno, che è
+ * il motivo per cui esistono — più i fatti degli ultimi due mesi.
+ */
+async function getRicontatti(utente) {
+  const righe = await sql().query(
+    `SELECT ${SELEZIONE} ${TABELLE_RICONTATTI}
+     WHERE a.assegnato_a = $1
+       AND (a.stato = 'attivo'
+            OR (a.stato = 'fatto' AND a.fatto_il > now() - ($2::int * interval '1 day')))
+     ORDER BY a.data, a.ora NULLS FIRST, a.id
+     LIMIT 500`,
+    [utente.id, GIORNI_FATTI_IN_VISTA],
+  );
+  return risposta({ ricontatti: righe.map(ricontattoPerIlBrowser) });
+}
+
+async function postRicontatto(req, utente) {
+  const { valori, errori } = validaRicontatto(await leggiJson(req));
+  if (Object.keys(errori).length > 0) {
+    return risposta({ errore: 'Controlla i campi segnalati', campi: errori }, 400);
+  }
+  // Niente indirizzo né prezzo: i vincoli della tabella li chiedono solo agli
+  // interventi. `assegnato_a` è chi lo scrive: è il suo, e lo vede solo lei.
+  const [{ id }] = await sql().query(
+    `INSERT INTO appuntamenti
+       (tipo, nome_cliente, luogo_impianto, telefono_cliente, prezzo_centesimi,
+        data, ora, note, assegnato_a, creato_da)
+     VALUES ('ricontatto', $1, '', $2, 0, $3, $4, $5, $6, $6)
+     RETURNING id`,
+    [valori.nomeCliente, valori.telefonoCliente, valori.data, valori.ora, valori.note, utente.id],
+  );
+  return risposta({ ricontatto: ricontattoPerIlBrowser(await leggiRicontatto(id, utente)) }, 201);
+}
+
+async function patchRicontatto(req, id, utente) {
+  if (!(await leggiRicontatto(id, utente))) return errore('Ricontatto non trovato', 404);
+  const { valori, errori } = validaRicontatto(await leggiJson(req));
+  if (Object.keys(errori).length > 0) {
+    return risposta({ errore: 'Controlla i campi segnalati', campi: errori }, 400);
+  }
+  await sql().query(
+    `UPDATE appuntamenti SET nome_cliente = $1, telefono_cliente = $2, data = $3,
+       ora = $4, note = $5, aggiornato_il = now()
+     WHERE id = $6 AND tipo = 'ricontatto' AND assegnato_a = $7`,
+    [valori.nomeCliente, valori.telefonoCliente, valori.data, valori.ora, valori.note, id, utente.id],
+  );
+  return risposta({ ricontatto: ricontattoPerIlBrowser(await leggiRicontatto(id, utente)) });
+}
+
+async function postRicontattoFatto(req, id, utente) {
+  if (!(await leggiRicontatto(id, utente))) return errore('Ricontatto non trovato', 404);
+  const fatto = (await leggiJson(req))?.fatto !== false;
+  await sql().query(
+    `UPDATE appuntamenti SET stato = $1, fatto_il = $2, aggiornato_il = now()
+     WHERE id = $3 AND tipo = 'ricontatto' AND assegnato_a = $4`,
+    [fatto ? 'fatto' : 'attivo', fatto ? new Date().toISOString() : null, id, utente.id],
+  );
+  return risposta({ ricontatto: ricontattoPerIlBrowser(await leggiRicontatto(id, utente)) });
+}
+
+async function postRicontattoAnnulla(id, utente) {
+  if (!(await leggiRicontatto(id, utente))) return errore('Ricontatto non trovato', 404);
+  await sql().query(
+    `UPDATE appuntamenti SET stato = 'annullato', fatto_il = NULL, aggiornato_il = now()
+     WHERE id = $1 AND tipo = 'ricontatto' AND assegnato_a = $2`,
+    [id, utente.id],
+  );
+  return risposta({ annullato: true, id });
+}
+
 async function postAppuntamento(req, utente) {
   const corpo = await leggiJson(req);
   const { valori, errori } = validaAppuntamento(corpo);
@@ -627,7 +742,7 @@ async function patchAppuntamento(req, id, utente) {
          nome_cliente = $1, luogo_impianto = $2, telefono_cliente = $3,
          prezzo_centesimi = $4, data = $5, ora = $6, note = $7, urgente = $8,
          assegnato_a = $9, aggiornato_il = now()
-       WHERE id = $10 AND stato <> 'annullato'
+       WHERE id = $10 AND tipo = 'intervento' AND stato <> 'annullato'
        RETURNING id`,
       [
         valori.nomeCliente, valori.luogoImpianto, valori.telefonoCliente,
@@ -670,7 +785,7 @@ async function patchRimanda(req, id, utente) {
     // Solo data e ora: tutto il resto della scheda resta com'era.
     const righe = await sql().query(
       `UPDATE appuntamenti SET data = $1, ora = $2, aggiornato_il = now()
-       WHERE id = $3 AND stato <> 'annullato'
+       WHERE id = $3 AND tipo = 'intervento' AND stato <> 'annullato'
        RETURNING id`,
       [valori.data, valori.ora, id],
     );
@@ -726,7 +841,7 @@ async function patchAssegna(req, id, utente) {
     // secondo riceve una risposta chiara invece di credere di averlo preso.
     const righe = await sql().query(
       `UPDATE appuntamenti SET assegnato_a = $1, aggiornato_il = now()
-       WHERE id = $2 AND stato <> 'annullato'
+       WHERE id = $2 AND tipo = 'intervento' AND stato <> 'annullato'
          AND assegnato_a IS NOT DISTINCT FROM $3
        RETURNING id`,
       [nuovo, id, esistente.assegnato_a],
@@ -777,7 +892,7 @@ async function postFatto(req, id, utente) {
   await sql().query(
     `UPDATE appuntamenti
      SET stato = $1, fatto_il = $2, aggiornato_il = now()
-     WHERE id = $3 AND stato <> 'annullato'`,
+     WHERE id = $3 AND tipo = 'intervento' AND stato <> 'annullato'`,
     [fatto ? 'fatto' : 'attivo', fatto ? new Date().toISOString() : null, id],
   );
 
@@ -797,7 +912,7 @@ async function postAnnulla(req, id, utente) {
 
   await sql().query(
     `UPDATE appuntamenti SET stato = 'annullato', fatto_il = NULL, aggiornato_il = now()
-     WHERE id = $1`,
+     WHERE id = $1 AND tipo = 'intervento'`,
     [id],
   );
 
@@ -923,16 +1038,7 @@ async function instrada(req, url, percorso, metodo) {
   // Il pannello lo chiede in continuazione: deve costare il meno possibile.
   // Niente database finché il deposito risponde (vedi lib/battito.mjs).
   if (percorso === '/battito' && metodo === 'GET') {
-    const dal_deposito = await leggiBattito();
-    if (dal_deposito !== null) return risposta({ cambiato: dal_deposito });
-    // Deposito muto: la risposta la sa anche il database, costa di più.
-    const [riga] = await sql()`
-      SELECT COALESCE(
-        round(extract(epoch FROM max(aggiornato_il)) * 1000), 0
-      )::bigint AS cambiato
-      FROM appuntamenti
-    `;
-    return risposta({ cambiato: Number(riga.cambiato) });
+    return risposta({ cambiato: await battitoAdesso() });
   }
 
   // Ogni scrittura deve arrivare dal nostro stesso sito.
@@ -965,7 +1071,7 @@ async function instrada(req, url, percorso, metodo) {
     const [{ liberi }] = await sql()`
       SELECT count(*)::int AS liberi
       FROM appuntamenti
-      WHERE stato = 'attivo' AND assegnato_a IS NULL
+      WHERE stato = 'attivo' AND assegnato_a IS NULL AND tipo = 'intervento'
     `;
     return risposta({
       utenti: utenti.map((u) => ({
@@ -986,6 +1092,21 @@ async function instrada(req, url, percorso, metodo) {
 
   // Lo storico è roba da ufficio: i tecnici hanno la loro giornata e la
   // scheda "Tutti", e sul telefono una vista d'archivio sarebbe un peso.
+  // I ricontatti sono gli appuntamenti personali dell'amministratore.
+  if (percorso === '/ricontatti' || percorso.startsWith('/ricontatti/')) {
+    if (utente.ruolo !== 'admin') return errore('Riservato all\'amministratore', 403);
+    if (percorso === '/ricontatti' && metodo === 'GET') return await getRicontatti(utente);
+    if (percorso === '/ricontatti' && metodo === 'POST') return await postRicontatto(req, utente);
+    const uno = /^\/ricontatti\/(\d+)(?:\/(fatto|annulla))?$/.exec(percorso);
+    if (uno) {
+      const id = Number(uno[1]);
+      if (!uno[2] && metodo === 'PATCH') return await patchRicontatto(req, id, utente);
+      if (uno[2] === 'fatto' && metodo === 'POST') return await postRicontattoFatto(req, id, utente);
+      if (uno[2] === 'annulla' && metodo === 'POST') return await postRicontattoAnnulla(id, utente);
+    }
+    return errore('Indirizzo non trovato', 404);
+  }
+
   if (percorso === '/storico' && metodo === 'GET') {
     if (utente.ruolo !== 'admin') return errore('Riservato all\'amministratore', 403);
     return await getStorico(url);

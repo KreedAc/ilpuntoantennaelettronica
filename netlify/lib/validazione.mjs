@@ -78,6 +78,15 @@ export function telefonoPerChiamata(valore) {
   return n;
 }
 
+/** Il messaggio d'errore per un numero di telefono, o null se va bene. */
+function controllaTelefono(numero) {
+  if (!numero) return 'Campo obbligatorio';
+  if (numero.replace(/\D/g, '').length < 6 || numero.length > 40) {
+    return 'Numero di telefono non valido';
+  }
+  return null;
+}
+
 /**
  * Controlla i campi della scheda cliente.
  * Restituisce { valori, errori }: `errori` è un oggetto campo → messaggio,
@@ -98,12 +107,8 @@ export function validaAppuntamento(corpo, { richiediTutto = true } = {}) {
   valori.luogoImpianto = luogoImpianto;
 
   const telefonoCliente = testo(corpo?.telefonoCliente);
-  if (!telefonoCliente) errori.telefonoCliente = 'Campo obbligatorio';
-  else if (telefonoCliente.replace(/\D/g, '').length < 6) {
-    errori.telefonoCliente = 'Numero di telefono non valido';
-  } else if (telefonoCliente.length > 40) {
-    errori.telefonoCliente = 'Numero di telefono non valido';
-  }
+  const erroreTelefono = controllaTelefono(telefonoCliente);
+  if (erroreTelefono) errori.telefonoCliente = erroreTelefono;
   valori.telefonoCliente = telefonoCliente;
 
   // Il prezzo non è obbligatorio: spesso si concorda dopo aver visto
@@ -163,4 +168,52 @@ export function validaSpostamento(corpo) {
   }
 
   return { valori: { data, ora }, errori };
+}
+
+/**
+ * Controlla un ricontatto: chi richiamare, a che numero, quando.
+ *
+ * Più leggero di un intervento — niente indirizzo, prezzo, tecnico, urgenza —
+ * e l'ora è facoltativa: per «richiamare a marzo» basta il giorno. Se c'è,
+ * però, deve cadere nelle stesse fasce degli interventi, così il promemoria
+ * di un'ora prima funziona allo stesso modo.
+ */
+export function validaRicontatto(corpo) {
+  const errori = {};
+  const valori = {};
+
+  const nome = testo(corpo?.nomeCliente);
+  if (!nome) errori.nomeCliente = 'Campo obbligatorio';
+  else if (nome.length > MAX_TESTO) errori.nomeCliente = 'Testo troppo lungo';
+  valori.nomeCliente = nome;
+
+  // Il numero è il motivo del ricontatto: senza, dalla scheda non si chiama.
+  const telefono = testo(corpo?.telefonoCliente);
+  const erroreTelefono = controllaTelefono(telefono);
+  if (erroreTelefono) errori.telefonoCliente = erroreTelefono;
+  valori.telefonoCliente = telefono;
+
+  const data = testo(corpo?.data);
+  if (!data) errori.data = 'Campo obbligatorio';
+  else if (!dataValida(data)) errori.data = 'Data non valida';
+  valori.data = data;
+
+  // Vuoto = nessuna ora. Scritta male non diventa "nessuna ora": resta un
+  // errore, altrimenti un 10:15 sparirebbe in silenzio.
+  const grezzaOra = testo(corpo?.ora);
+  if (!grezzaOra) {
+    valori.ora = null;
+  } else {
+    const ora = normalizzaOra(grezzaOra);
+    if (!ora || !fasciaValida(ora)) {
+      errori.ora = `Orario non valido: usa fasce da 30 minuti fra ${FASCE[0]} e ${FASCE[FASCE.length - 1]}, oppure lascialo vuoto`;
+    }
+    valori.ora = ora;
+  }
+
+  const note = testo(corpo?.note);
+  if (note.length > MAX_NOTE) errori.note = 'Testo troppo lungo';
+  valori.note = note;
+
+  return { valori, errori };
 }

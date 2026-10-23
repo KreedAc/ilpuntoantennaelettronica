@@ -12,7 +12,7 @@ import assert from 'node:assert/strict';
 import { FASCE, fasciaValida, GIORNI_LAVORATIVI, VERSIONE_PANNELLO } from '../netlify/lib/configurazione.mjs';
 import {
   prezzoInCentesimi, centesimiInPrezzo, dataValida, normalizzaOra,
-  telefonoPerChiamata, validaAppuntamento, validaSpostamento,
+  telefonoPerChiamata, validaAppuntamento, validaSpostamento, validaRicontatto,
 } from '../netlify/lib/validazione.mjs';
 import {
   piuGiorni, lunedi, giornoSettimana, dataEstesa, intervalloSettimana,
@@ -21,7 +21,7 @@ import {
 import { cifra, verifica } from '../netlify/lib/password.mjs';
 import {
   comeDire, config as configPromemoria,
-  MINUTI_MINIMI, MINUTI_MASSIMI, ORA_PULIZIA,
+  MINUTI_MINIMI, MINUTI_MASSIMI, ORA_PULIZIA, ORA_AVVISO_GIORNATA,
 } from '../netlify/functions/promemoria.mjs';
 import { titoliCambioTecnico } from '../netlify/lib/avvisi.mjs';
 
@@ -401,12 +401,97 @@ describe('quando girano i promemoria', () => {
     }
   });
 
+  test('l\'avviso dei ricontatti "in giornata" ha un giro alle 9, estate e inverno', () => {
+    for (const [stagione, scarto] of Object.entries(SCARTO)) {
+      const locali = giri.map((m) => m + scarto);
+      assert.ok(locali.some((g) => Math.floor(g / 60) === ORA_AVVISO_GIORNATA),
+        `d'${stagione} nessun giro alle ${ORA_AVVISO_GIORNATA}: i ricontatti senza ora non avviserebbero`);
+    }
+  });
+
   test('i giorni non sono ristretti: la domenica si può lavorare', () => {
     // GIORNI_LAVORATIVI serve all'interfaccia, ma la validazione non impedisce
     // un appuntamento di domenica: togliergli il promemoria sarebbe un guasto
     // che non si vede.
     const giorni = configPromemoria.schedule.split(' ')[4];
     assert.equal(giorni, '*', 'il cron esclude dei giorni della settimana');
+  });
+});
+
+describe('ricontatti', () => {
+  const buono = { nomeCliente: 'Mario Greco', telefonoCliente: '333 1234567', data: '2027-03-15' };
+
+  test('basta nome, numero e data: l\'ora si può lasciare vuota', () => {
+    const { valori, errori } = validaRicontatto(buono);
+    assert.deepEqual(errori, {});
+    assert.equal(valori.ora, null, 'senza ora deve restare null, non stringa vuota');
+  });
+
+  test('un anno avanti va bene: è il motivo per cui esistono', () => {
+    assert.deepEqual(validaRicontatto({ ...buono, data: '2027-10-23' }).errori, {});
+  });
+
+  test('se l\'ora c\'è, deve cadere nelle fasce', () => {
+    assert.equal(validaRicontatto({ ...buono, ora: '10:30' }).valori.ora, '10:30');
+    assert.ok(validaRicontatto({ ...buono, ora: '10:15' }).errori.ora,
+      'un 10:15 non deve sparire in silenzio diventando "nessuna ora"');
+    assert.ok(validaRicontatto({ ...buono, ora: '22:00' }).errori.ora);
+  });
+
+  test('senza nome, numero o data no', () => {
+    const { errori } = validaRicontatto({});
+    for (const campo of ['nomeCliente', 'telefonoCliente', 'data']) {
+      assert.ok(errori[campo], `manca la segnalazione su ${campo}`);
+    }
+  });
+
+  test('non chiede indirizzo né prezzo', () => {
+    const { errori } = validaRicontatto(buono);
+    assert.ok(!errori.luogoImpianto && !errori.prezzoConcordato);
+  });
+});
+
+describe('i ricontatti non arrivano ai tecnici', () => {
+  test('ogni lettura degli interventi passa dalla tabella filtrata', async () => {
+    const { readFile } = await import('node:fs/promises');
+    const api = await readFile(new URL('../netlify/functions/api.mjs', import.meta.url), 'utf8');
+
+    // TABELLE deve contenere il filtro sul tipo...
+    const tabelle = /const TABELLE = `([^`]*)`/.exec(api)?.[1] ?? '';
+    assert.match(tabelle, /tipo = 'intervento'/, 'TABELLE non filtra più i ricontatti');
+
+    // ...e nessuna query deve leggere gli appuntamenti con un alias `a` senza
+    // passare da TABELLE o TABELLE_RICONTATTI.
+    const scoperte = [...api.matchAll(/FROM appuntamenti a\b/g)];
+    assert.equal(scoperte.length, 0,
+      'c\'è una query che legge "FROM appuntamenti a" senza il filtro sul tipo');
+
+    // Le letture dirette senza alias (conteggi) devono dire il tipo.
+    for (const m of api.matchAll(/FROM appuntamenti\s*\n\s*WHERE([^`]*)`/g)) {
+      assert.match(m[1], /tipo = /, `query diretta senza tipo: WHERE${m[1].slice(0, 80)}`);
+    }
+  });
+
+  test('l\'indirizzo dei ricontatti controlla il ruolo prima di qualsiasi cosa', async () => {
+    const { readFile } = await import('node:fs/promises');
+    const api = await readFile(new URL('../netlify/functions/api.mjs', import.meta.url), 'utf8');
+    const inizio = api.indexOf("if (percorso === '/ricontatti' || percorso.startsWith('/ricontatti/'))");
+    assert.ok(inizio > 0, 'manca il blocco dei ricontatti');
+    const blocco = api.slice(inizio, api.indexOf('\n  }\n', inizio));
+    const controllo = blocco.indexOf("utente.ruolo !== 'admin'");
+    assert.ok(controllo > 0, 'i ricontatti non controllano il ruolo');
+    for (const funzione of ['getRicontatti', 'postRicontatto', 'patchRicontatto', 'postRicontattoFatto', 'postRicontattoAnnulla']) {
+      const dove = blocco.indexOf(funzione);
+      assert.ok(dove > controllo, `${funzione} viene chiamata prima del controllo sul ruolo`);
+    }
+  });
+
+  test('le scritture sugli interventi non possono toccare un ricontatto', async () => {
+    const { readFile } = await import('node:fs/promises');
+    const api = await readFile(new URL('../netlify/functions/api.mjs', import.meta.url), 'utf8');
+    for (const m of api.matchAll(/UPDATE appuntamenti[^`]*`/g)) {
+      assert.match(m[0], /tipo = '(intervento|ricontatto)'/, `UPDATE senza tipo: ${m[0].slice(0, 90)}`);
+    }
   });
 });
 

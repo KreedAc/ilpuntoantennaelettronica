@@ -33,6 +33,14 @@ export const MINUTI_MASSIMI = 80;
 export const ORA_PULIZIA = 7;
 
 /**
+ * L'ora italiana in cui arriva l'avviso di un ricontatto senza orario: «oggi
+ * c'è da richiamare Greco». Le 9 sono l'apertura del negozio. Se il giro delle
+ * 9 saltasse, quello delle 9:30 lo recupera: la condizione è "dalle 9 in poi",
+ * e il segno su `promemoria_inviati` impedisce il doppione.
+ */
+export const ORA_AVVISO_GIORNATA = 9;
+
+/**
  * Segna che un avviso è stato mandato, e dice se era già stato mandato prima.
  * È l'inserimento stesso a fare da guardia: se la chiave esiste già,
  * `ON CONFLICT DO NOTHING` non tocca niente e non restituisce righe. Due
@@ -60,9 +68,12 @@ async function primaVolta(chiave) {
  * assegnare: non c'è nessuno da avvisare.
  */
 async function inArrivo() {
+  // I ricontatti senza ora qui non entrano da soli: `data + NULL` è NULL, e
+  // il confronto lo scarta. Hanno la loro domanda, `daRichiamareOggi`.
   return await sql().query(
     `SELECT
        a.id,
+       a.tipo,
        a.assegnato_a,
        a.nome_cliente,
        a.urgente,
@@ -78,6 +89,21 @@ async function inArrivo() {
                AND now() + ($2::int * interval '1 minute')
      ORDER BY a.data, a.ora`,
     [MINUTI_MINIMI, MINUTI_MASSIMI],
+  );
+}
+
+/**
+ * I ricontatti senza orario che cadono oggi, in Italia.
+ * Si chiede solo il giorno, non l'ora: il quando lo decide chi chiama.
+ */
+async function daRichiamareOggi() {
+  return await sql().query(
+    `SELECT a.id, a.assegnato_a, a.nome_cliente, to_char(a.data, 'YYYY-MM-DD') AS data
+     FROM appuntamenti a
+     WHERE a.tipo = 'ricontatto' AND a.stato = 'attivo' AND a.ora IS NULL
+       AND a.assegnato_a IS NOT NULL
+       AND a.data = (now() AT TIME ZONE 'Europe/Rome')::date
+     ORDER BY a.id`,
   );
 }
 
@@ -114,16 +140,35 @@ export default async () => {
     // l'avviso riparte per il nuovo orario invece di restare muto.
     if (!(await primaVolta(`prima:${a.id}:${a.data}:${a.ora}`))) continue;
 
+    const ricontatto = a.tipo === 'ricontatto';
     await avvisa([a.assegnato_a], {
-      titolo: comeDire(a.fra_quanti_minuti),
+      titolo: ricontatto ? `Da richiamare · ${comeDire(a.fra_quanti_minuti).toLowerCase()}`
+                         : comeDire(a.fra_quanti_minuti),
       testo: `Ore ${a.ora} · ${a.nome_cliente}` + (a.urgente ? ' · Urgente' : ''),
-      url: `/appuntamenti/?vista=giorno&giorno=${a.data}`,
+      url: ricontatto ? '/appuntamenti/?vista=ricontatti'
+                      : `/appuntamenti/?vista=giorno&giorno=${a.data}`,
       tag: `app-${a.id}`,
     });
     mandati += 1;
   }
 
   const { ore, minuti } = oraItaliana();
+
+  // I ricontatti "in giornata": un avviso solo, dalle 9 in poi.
+  if (ore >= ORA_AVVISO_GIORNATA) {
+    for (const r of await daRichiamareOggi()) {
+      if (!(await primaVolta(`giorno:${r.id}:${r.data}`))) continue;
+      // Come per gli interventi, nella notifica solo il nome: il numero resta
+      // nel pannello, dietro il login.
+      await avvisa([r.assegnato_a], {
+        titolo: 'Da richiamare oggi',
+        testo: r.nome_cliente,
+        url: '/appuntamenti/?vista=ricontatti',
+        tag: `app-${r.id}`,
+      });
+      mandati += 1;
+    }
+  }
   if (ore === ORA_PULIZIA && minuti < 30) await ripulisci();
 
   // Nel log niente nomi di clienti: solo quanti avvisi sono partiti.

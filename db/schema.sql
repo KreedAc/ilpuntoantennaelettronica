@@ -125,6 +125,36 @@ ALTER TABLE appuntamenti DROP CONSTRAINT IF EXISTS appuntamenti_fatto_coerente;
 ALTER TABLE appuntamenti ADD CONSTRAINT appuntamenti_fatto_coerente
   CHECK ((stato = 'fatto') = (fatto_il IS NOT NULL));
 
+-- ---------------------------------------------------------------------------
+-- Ricontatti di Tiziana
+-- ---------------------------------------------------------------------------
+-- Un ricontatto ("richiamare il signor Greco a marzo") sta nella stessa
+-- tabella degli interventi, ma è un'altra cosa: non ha indirizzo né prezzo,
+-- non va a nessun tecnico, e l'ora è facoltativa. `tipo` li distingue.
+--
+-- Il valore predefinito è 'intervento': le righe che c'erano già, e ogni
+-- inserimento che non dice niente, restano interventi come prima.
+ALTER TABLE appuntamenti
+  ADD COLUMN IF NOT EXISTS tipo TEXT NOT NULL DEFAULT 'intervento';
+ALTER TABLE appuntamenti DROP CONSTRAINT IF EXISTS appuntamenti_tipo_check;
+ALTER TABLE appuntamenti ADD CONSTRAINT appuntamenti_tipo_check
+  CHECK (tipo IN ('intervento', 'ricontatto'));
+
+-- L'ora diventa facoltativa, ma SOLO per i ricontatti: un intervento senza
+-- ora non ha senso e il database continua a rifiutarlo.
+ALTER TABLE appuntamenti ALTER COLUMN ora DROP NOT NULL;
+ALTER TABLE appuntamenti DROP CONSTRAINT IF EXISTS appuntamenti_ora_per_interventi;
+ALTER TABLE appuntamenti ADD CONSTRAINT appuntamenti_ora_per_interventi
+  CHECK (tipo = 'ricontatto' OR ora IS NOT NULL);
+
+-- Lo stesso per il luogo: obbligatorio per un intervento, vuoto per un
+-- ricontatto. Il controllo di prima era scritto sulla colonna e Postgres gli
+-- ha dato il nome qui sotto.
+ALTER TABLE appuntamenti DROP CONSTRAINT IF EXISTS appuntamenti_luogo_impianto_check;
+ALTER TABLE appuntamenti DROP CONSTRAINT IF EXISTS appuntamenti_luogo_per_interventi;
+ALTER TABLE appuntamenti ADD CONSTRAINT appuntamenti_luogo_per_interventi
+  CHECK (tipo = 'ricontatto' OR length(btrim(luogo_impianto)) > 0);
+
 -- Un solo appuntamento per fascia PER INSTALLATORE. Con due tecnici, alle
 -- 15:00 di giovedì possono lavorare tutti e due: quello che non si può fare è
 -- mandare la stessa persona in due posti nello stesso momento.
@@ -135,10 +165,20 @@ ALTER TABLE appuntamenti ADD CONSTRAINT appuntamenti_fatto_coerente
 -- Il vincolo sta nel database e non solo nel codice: due richieste inviate
 -- nello stesso istante non possono sovrapporsi, la seconda viene rifiutata e
 -- l'API risponde 409 "Fascia già occupata".
+--
+-- I ricontatti ne sono fuori: due telefonate alle 10 si possono fare, e non
+-- c'è nessun tecnico da mandare in due posti. L'indice si ricrea ogni volta
+-- perché `IF NOT EXISTS` non aggiornerebbe la condizione di uno già esistente.
 DROP INDEX IF EXISTS appuntamenti_una_per_fascia;
-CREATE UNIQUE INDEX IF NOT EXISTS appuntamenti_una_per_fascia_per_persona
+DROP INDEX IF EXISTS appuntamenti_una_per_fascia_per_persona;
+CREATE UNIQUE INDEX appuntamenti_una_per_fascia_per_persona
   ON appuntamenti (data, ora, assegnato_a)
-  WHERE stato <> 'annullato' AND assegnato_a IS NOT NULL;
+  WHERE stato <> 'annullato' AND assegnato_a IS NOT NULL AND tipo = 'intervento';
+
+-- I ricontatti si leggono per proprietaria e data.
+CREATE INDEX IF NOT EXISTS appuntamenti_ricontatti
+  ON appuntamenti (assegnato_a, data)
+  WHERE tipo = 'ricontatto' AND stato <> 'annullato';
 
 -- Indici per le letture per intervallo (viste giorno e settimana).
 DROP INDEX IF EXISTS appuntamenti_per_data;

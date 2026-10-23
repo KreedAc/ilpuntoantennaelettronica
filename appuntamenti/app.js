@@ -163,6 +163,7 @@ const stato = {
   appuntamenti: [],
   daAssegnare: 0,
   storico: null,
+  ricontatti: [],
   disegnoCorrente: 0,
   // Stato delle notifiche su questo dispositivo, riletto a ogni avvio:
   // 'attive' | 'spente' | 'negate' | 'da-installare' | 'non-supportate' | 'non-configurate'.
@@ -435,7 +436,7 @@ function barraSuperiore() {
   return el('header', { class: 'barra' },
     el('span', { class: 'negozio', testo: 'Il Punto Antenna Elettronica' }),
     el('span', { class: 'separatore', 'aria-hidden': 'true' }),
-    el('span', { class: 'sezione', testo: 'Appuntamenti' }),
+    el('span', { class: 'sezione', testo: 'Calendario' }),
     el('div', { class: 'destra' },
       el('span', { class: 'chi', testo: `${stato.utente.nome} · Amministratore` }),
       pulsanteNotifiche(),
@@ -448,6 +449,22 @@ function barraSuperiore() {
   );
 }
 
+/**
+ * Un selettore di data accanto alle frecce: Tiziana fissa appuntamenti anche
+ * a un anno di distanza, e arrivarci sfogliando una settimana alla volta non
+ * è un modo di lavorare. È quello del browser: sul telefono apre il calendario
+ * del sistema, e non serve una riga di codice in più per disegnarlo.
+ */
+function sceltaData(valore, vaiA) {
+  return el('input', {
+    type: 'date', class: 'scelta-data', value: valore,
+    'aria-label': 'Vai a una data', title: 'Vai a una data',
+    // Mentre si scrive a mano il valore resta vuoto finché la data non è
+    // completa: si salta solo quando ce n'è una vera.
+    onchange: (e) => { if (e.target.value) vaiA(e.target.value); },
+  });
+}
+
 function sceltaVista(attiva, riferimento) {
   const bottone = (etichetta, chiave, parametri) => el('button', {
     type: 'button',
@@ -458,6 +475,7 @@ function sceltaVista(attiva, riferimento) {
   return el('div', { class: 'scelta-vista' },
     bottone('Giorno', 'giorno', { vista: 'giorno', giorno: riferimento.giorno }),
     bottone('Settimana', 'settimana', { vista: 'agenda', settimana: riferimento.settimana, chi: 'tutti' }),
+    bottone('Ricontatti', 'ricontatti', { vista: 'ricontatti' }),
     bottone('Storico', 'storico', { vista: 'storico' }),
   );
 }
@@ -566,6 +584,7 @@ function vistaGiornoAdmin(giorno) {
       class: 'pulsante', type: 'button', testo: 'Oggi',
       onclick: () => vai({ vista: 'giorno', giorno: oggi() }),
     }),
+    sceltaData(giorno, (d) => vai({ vista: 'giorno', giorno: d })),
     el('h1', { class: 'titolo-settimana', testo: maiuscola(dataEstesa(giorno)) }),
     el('div', { class: 'a-destra' },
       el('div', { class: 'legenda' },
@@ -671,6 +690,8 @@ function vistaSettimanaAdmin(inizioSettimana, chi) {
       class: 'pulsante', type: 'button', testo: 'Oggi',
       onclick: () => vai({ vista: 'agenda', settimana: lunedi(oggi()), chi }),
     }),
+    // Si sceglie un giorno qualunque e si apre la sua settimana.
+    sceltaData(inizioSettimana, (d) => vai({ vista: 'agenda', settimana: lunedi(d), chi })),
     el('h1', { class: 'titolo-settimana', testo: intervalloSettimana(inizioSettimana) }),
     el('div', { class: 'a-destra' },
       el('div', { class: 'filtri' },
@@ -923,6 +944,168 @@ function vistaStorico({ mese, chi, cerca }) {
 
   return el('div', {}, barraSuperiore(), strumenti,
     el('div', { class: 'storico' }, filtri, riepilogo, inSospeso, elenco));
+}
+
+// ---------------------------------------------------------------------------
+// Amministratore — Ricontatti
+// ---------------------------------------------------------------------------
+// Gli appuntamenti personali di Tiziana: chi richiamare e quando. Non sono
+// interventi — niente indirizzo, prezzo, tecnico — e non compaiono in nessuna
+// vista dei tecnici né nell'agenda a colonne.
+
+function voceRicontatto(r) {
+  const adesso = oggi();
+  const scaduto = !r.fatto && r.data < adesso;
+  const riga = el('li', {
+    class: `voce ricontatto${r.fatto ? ' conclusa' : ''}${scaduto ? ' scaduto' : ''}`,
+  });
+
+  const apri = el('button', { class: 'apri', type: 'button', 'aria-label': `Modifica ricontatto: ${r.nomeCliente}` },
+    el('span', { class: 'chi', testo: r.nomeCliente }),
+    r.note ? el('span', { class: 'nota', testo: r.note }) : null,
+  );
+  apri.addEventListener('click', () => apriRicontatto(r));
+
+  const segna = el('button', {
+    class: `pulsante ${r.fatto ? '' : 'conferma'}`, type: 'button',
+    testo: r.fatto ? 'Riapri' : 'Fatto',
+  });
+  segna.addEventListener('click', async () => {
+    segna.disabled = true;
+    try {
+      await api(`/ricontatti/${r.id}/fatto`, { metodo: 'POST', corpo: { fatto: !r.fatto } });
+      await disegna({ silenzioso: true });
+    } catch (e) {
+      segna.disabled = false;
+      avvisoVolante(e.message);
+    }
+  });
+
+  riga.append(
+    el('span', { class: 'quando' },
+      el('span', { class: 'giorno', testo: dataBreve(r.data) }),
+      el('span', { class: 'ora', testo: r.ora ?? 'in giornata' }),
+    ),
+    apri,
+    el('a', { class: 'numero', href: `tel:${r.telefonoPerChiamata}`, testo: r.telefonoCliente }),
+    segna,
+  );
+  return riga;
+}
+
+function vistaRicontatti() {
+  const adesso = oggi();
+  const tutti = stato.ricontatti ?? [];
+  const daFare = tutti.filter((r) => !r.fatto);
+  const scaduti = daFare.filter((r) => r.data < adesso);
+  const diOggi = daFare.filter((r) => r.data === adesso);
+  const prossimi = daFare.filter((r) => r.data > adesso);
+  // I fatti dal più recente: è lì che si guarda "l'ho già chiamato?".
+  const fatti = tutti.filter((r) => r.fatto).reverse();
+
+  const elenco = (righe) => el('ul', { class: 'elenco' }, righe.map(voceRicontatto));
+  const sezione = (titolo, righe, { classe = '', spiega = null } = {}) => (righe.length === 0 ? null
+    : el('section', { class: `gruppo-ricontatti ${classe}` },
+        el('h2', {}, titolo, el('span', { class: 'quanti', testo: String(righe.length) })),
+        spiega ? el('p', { class: 'spiega', testo: spiega }) : null,
+        elenco(righe)));
+
+  // I prossimi si raggruppano per mese: a un anno di distanza, il giorno
+  // esatto conta meno del "a marzo".
+  const mesi = [...new Set(prossimi.map((r) => meseDi(r.data)))];
+  const futuri = mesi.map((mese) => sezione(
+    maiuscola(meseEsteso(mese)), prossimi.filter((r) => meseDi(r.data) === mese)));
+
+  const strumenti = el('div', { class: 'strumenti' },
+    sceltaVista('ricontatti', { giorno: adesso, settimana: lunedi(adesso) }),
+    el('h1', { class: 'titolo-settimana', testo: 'Ricontatti' }),
+    el('div', { class: 'a-destra' },
+      el('button', {
+        class: 'pulsante primario', type: 'button', icona: 'piu',
+        onclick: () => apriRicontatto(),
+      }, 'Nuovo ricontatto'),
+    ),
+  );
+
+  const vuoto = tutti.length === 0
+    ? el('p', { class: 'vuoto', testo: 'Nessun ricontatto in programma. Con «Nuovo ricontatto» ti segni chi richiamare e quando: il giorno stesso ti arriva un avviso.' })
+    : null;
+
+  return el('div', {}, barraSuperiore(), strumenti,
+    el('div', { class: 'ricontatti' },
+      vuoto,
+      sezione('Scaduti', scaduti, {
+        classe: 'scaduti',
+        spiega: 'La data è passata e non sono ancora segnati come fatti.',
+      }),
+      sezione('Oggi', diOggi),
+      ...futuri,
+      sezione('Fatti di recente', fatti, { classe: 'fatti' }),
+    ));
+}
+
+/** Il modulo di un ricontatto: nuovo se `r` manca, altrimenti modifica. */
+function apriRicontatto(r = null) {
+  const campo = (nome, etichetta, dentro) => el('label', { class: 'campo', 'data-campo': nome },
+    el('span', { class: 'etichetta', testo: etichetta }), dentro);
+
+  const avviso = el('p', { class: 'avviso', role: 'alert', hidden: true });
+  const modulo = el('form', { novalidate: true, id: 'modulo-ricontatto' },
+    avviso,
+    campo('nomeCliente', 'Chi richiamare',
+      el('input', { type: 'text', name: 'nomeCliente', required: true, autocomplete: 'off', value: r?.nomeCliente ?? '' })),
+    campo('telefonoCliente', 'Telefono',
+      el('input', { type: 'tel', name: 'telefonoCliente', required: true, autocomplete: 'off', value: r?.telefonoCliente ?? '' })),
+    el('div', { class: 'coppia' },
+      campo('data', 'Giorno',
+        el('input', { type: 'date', name: 'data', required: true, value: r?.data ?? oggi() })),
+      campo('ora', 'Ora',
+        el('select', { name: 'ora' },
+          el('option', { value: '', selected: !r?.ora, testo: 'In giornata' }),
+          stato.config.fasce.map((ora) => el('option', { value: ora, selected: r?.ora === ora, testo: ora })))),
+    ),
+    campo('note', 'Note',
+      el('textarea', { name: 'note', rows: '3', placeholder: 'Per esempio: scade il contratto Sky, proporre il rinnovo', testo: r?.note ?? '' })),
+  );
+
+  const annulla = el('button', { class: 'pulsante', type: 'button', testo: 'Annulla' });
+  const salva = el('button', {
+    class: 'pulsante primario', type: 'submit', form: 'modulo-ricontatto',
+    testo: r ? 'Salva modifiche' : 'Salva ricontatto',
+  });
+  const elimina = r ? el('button', { class: 'pulsante pericolo', type: 'button', testo: 'Elimina' }) : null;
+
+  const { chiudi } = pannello(r ? 'Ricontatto' : 'Nuovo ricontatto', modulo,
+    el('div', { class: 'piede' }, elimina, annulla, salva));
+  annulla.addEventListener('click', () => chiudi());
+
+  elimina?.addEventListener('click', async () => {
+    elimina.disabled = true;
+    try {
+      await api(`/ricontatti/${r.id}/annulla`, { metodo: 'POST' });
+      chiudi();
+      await disegna({ silenzioso: true });
+    } catch (e) {
+      mostraErrori(modulo, e, avviso);
+      elimina.disabled = false;
+    }
+  });
+
+  modulo.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    salva.disabled = true;
+    const corpo = Object.fromEntries(new FormData(modulo));
+    try {
+      await api(r ? `/ricontatti/${r.id}` : '/ricontatti', { metodo: r ? 'PATCH' : 'POST', corpo });
+      chiudi();
+      await disegna({ silenzioso: true });
+    } catch (errore) {
+      mostraErrori(modulo, errore, avviso);
+      salva.disabled = false;
+    }
+  });
+
+  modulo.elements.nomeCliente.focus();
 }
 
 // ---------------------------------------------------------------------------
@@ -2097,7 +2280,7 @@ async function disegna({ silenzioso = false } = {}) {
   }
   // Lo storico è roba da ufficio: sul telefono non c'è, e l'API lo rifiuta
   // comunque anche a chi provasse a scriversi l'indirizzo a mano.
-  if (r.vista === 'storico' && !eAdmin()) {
+  if ((r.vista === 'storico' || r.vista === 'ricontatti') && !eAdmin()) {
     vai(rottaPredefinita(), { sostituisci: true });
     return;
   }
@@ -2138,6 +2321,14 @@ async function disegna({ silenzioso = false } = {}) {
       stato.appuntamenti = dati.appuntamenti;
       if (mio !== stato.disegnoCorrente) return;
       sostituisci(vistaDaAssegnare());
+      return;
+    }
+
+    if (r.vista === 'ricontatti') {
+      const [dati] = await Promise.all([api('/ricontatti'), utentiPronti]);
+      stato.ricontatti = dati.ricontatti;
+      if (mio !== stato.disegnoCorrente) return;
+      sostituisci(vistaRicontatti());
       return;
     }
 

@@ -1428,3 +1428,133 @@ dialog.conferma .avviso { margin-bottom: 1rem; color: var(--pericolo); }
     padding: 0.3rem 0 0;
   }
 }
+
+/* ------------------------------------------------------------------ */
+/* Selettore di data                                                   */
+/* ------------------------------------------------------------------ */
+
+.scelta-data {
+  min-height: 36px;
+  padding: 0 0.6rem;
+  border: 1px solid var(--linea);
+  border-radius: 10px;
+  background: var(--superficie);
+  color: var(--testo);
+  font: inherit;
+  cursor: pointer;
+}
+
+/* ------------------------------------------------------------------ */
+/* Ricontatti                                                          */
+/* ------------------------------------------------------------------ */
+
+.ricontatti {
+  max-width: calc(var(--agenda-massima) + 2.5rem);
+  margin: 0 auto;
+  padding: 0 0 2.5rem;
+}
+.ricontatti > .vuoto { margin: 1rem 1.25rem; }
+
+.gruppo-ricontatti { margin: 0 1.25rem 1.4rem; }
+.gruppo-ricontatti h2 {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0 0 0.6rem;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--testo-secondario);
+}
+.gruppo-ricontatti h2 .quanti {
+  min-width: 22px;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  background: var(--linea);
+  color: var(--testo);
+  font-size: 12px;
+  text-align: center;
+  letter-spacing: 0;
+}
+.gruppo-ricontatti .elenco { padding: 0; }
+.gruppo-ricontatti .spiega { margin: -0.2rem 0 0.7rem; font-size: 13px; }
+
+/* Gli scaduti sono quelli da non perdere: si fanno notare come i
+   "passati e mai chiusi" dello storico. */
+.gruppo-ricontatti.scaduti {
+  padding: 0.9rem 1rem 1rem;
+  border: 1px solid var(--urgente-bordo);
+  border-radius: 14px;
+  background: var(--urgente-fondo);
+}
+.gruppo-ricontatti.scaduti h2,
+.gruppo-ricontatti.scaduti .spiega { color: var(--urgente-testo); }
+.gruppo-ricontatti.scaduti h2 .quanti { background: var(--urgente-testo); color: #fff; }
+
+.voce.ricontatto {
+  grid-template-columns: 5.5rem 1fr auto auto;
+  align-items: center;
+  gap: 0.75rem;
+}
+.voce.ricontatto .quando {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  padding-top: 0;
+  gap: 0.1rem;
+}
+.voce.ricontatto .quando .giorno {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--testo-secondario);
+}
+.voce.ricontatto .quando .ora { font-size: 16px; font-weight: 600; }
+
+.voce.ricontatto .apri {
+  display: block;
+  width: 100%;
+  min-height: 44px;
+  padding: 0.7rem 0.95rem;
+  border: 1px solid var(--linea);
+  border-radius: 14px;
+  background: var(--superficie);
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.voce.ricontatto .apri:hover { background: var(--fondo); }
+.voce.ricontatto .apri .chi { display: block; font-weight: 600; }
+.voce.ricontatto .apri .nota {
+  display: block;
+  margin-top: 0.15rem;
+  font-size: 13px;
+  color: var(--testo-secondario);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.voce.ricontatto .numero { font-weight: 600; white-space: nowrap; }
+.voce.ricontatto.scaduto .apri { border-color: var(--urgente-bordo); }
+.voce.ricontatto.conclusa .apri { background: var(--fatto-fondo); border-color: var(--fatto-bordo); }
+.voce.ricontatto.conclusa .apri .chi { color: var(--testo-secondario); text-decoration: line-through; }
+
+/* Nel modulo, "Elimina" resta piccolo e a sinistra, lontano da "Salva":
+   gli altri pulsanti del piede si allargano, lui no. */
+dialog.pannello .piede .pulsante.pericolo { flex: 0 0 auto; margin-right: auto; }
+
+@media (max-width: 720px) {
+  .voce.ricontatto { grid-template-columns: 4.5rem 1fr; }
+  .voce.ricontatto .numero,
+  .voce.ricontatto > .pulsante { grid-column: 2; justify-self: start; }
+}
+
+/* Con il selettore di data la barra del Giorno non sta più in una riga su un
+   portatile, e andando a capo ruba altezza all'agenda. La legenda è la cosa
+   più sacrificabile: i blocchi dicono già da soli "Urgente" e "Fatto". */
+@media (max-width: 1500px) {
+  .strumenti .legenda { display: none; }
+}
