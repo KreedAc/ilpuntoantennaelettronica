@@ -140,12 +140,16 @@ ALTER TABLE appuntamenti DROP CONSTRAINT IF EXISTS appuntamenti_tipo_check;
 ALTER TABLE appuntamenti ADD CONSTRAINT appuntamenti_tipo_check
   CHECK (tipo IN ('intervento', 'ricontatto'));
 
--- L'ora diventa facoltativa, ma SOLO per i ricontatti: un intervento senza
--- ora non ha senso e il database continua a rifiutarlo.
+-- L'ora è facoltativa per tutti. Un ricontatto può essere solo «a marzo»; un
+-- intervento può essere fissato per il giorno, con l'orario da concordare
+-- dopo fra tecnico e cliente. Il controllo che la chiedeva agli interventi
+-- c'era nella prima versione dei ricontatti e qui si toglie.
+--
+-- Un intervento senza ora non occupa nessuna fascia: per l'indice qui sotto
+-- due NULL sono sempre diversi, quindi lo stesso tecnico può averne più d'uno
+-- nello stesso giorno.
 ALTER TABLE appuntamenti ALTER COLUMN ora DROP NOT NULL;
 ALTER TABLE appuntamenti DROP CONSTRAINT IF EXISTS appuntamenti_ora_per_interventi;
-ALTER TABLE appuntamenti ADD CONSTRAINT appuntamenti_ora_per_interventi
-  CHECK (tipo = 'ricontatto' OR ora IS NOT NULL);
 
 -- Lo stesso per il luogo: obbligatorio per un intervento, vuoto per un
 -- ricontatto. Il controllo di prima era scritto sulla colonna e Postgres gli

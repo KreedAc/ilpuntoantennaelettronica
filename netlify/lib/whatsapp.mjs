@@ -1,15 +1,18 @@
 // Conferma dell'appuntamento su WhatsApp.
 //
 // Un messaggio solo, quando Tiziana fissa un intervento: «le confermiamo
-// l'appuntamento di giovedì alle 10». Nessun promemoria, nessun altro invio.
+// l'appuntamento per giovedì 12 marzo alle 10:00». Se l'orario è ancora da
+// concordare, solo il giorno. Nessun promemoria, nessun altro invio.
 //
 // Passa dall'API ufficiale di WhatsApp (Cloud API di Meta). Strumenti che
 // comandano WhatsApp Web da soli sono contro le regole, e il rischio è che
 // blocchino il numero del negozio: qui non se ne usano.
 //
 // Un messaggio che parte dall'azienda verso il cliente deve usare un MODELLO
-// approvato da Meta, con il testo fisso e i dati come variabili. Il testo da
-// sottoporre è nel README, sezione "Conferma su WhatsApp".
+// approvato da Meta, con il testo fisso e i dati come variabili. I modelli
+// sono due — con l'orario e senza — perché Meta non ammette variabili vuote
+// né pezzi di frase che compaiono e scompaiono. I testi da sottoporre sono
+// nel README, sezione "Conferma su WhatsApp".
 //
 // Finché su Netlify mancano le variabili d'ambiente qui sotto, tutto è spento:
 // il pannello non mostra la casella e non parte niente. È lo stesso schema
@@ -17,7 +20,8 @@
 //
 //   WHATSAPP_TOKEN        token di sistema permanente (Meta Business)
 //   WHATSAPP_NUMERO_ID    "Phone number ID" del numero che invia
-//   WHATSAPP_MODELLO      nome del modello approvato (predefinito: conferma_appuntamento)
+//   WHATSAPP_MODELLO      modello con l'orario (predefinito: conferma_appuntamento)
+//   WHATSAPP_MODELLO_GIORNO  modello senza orario (predefinito: conferma_appuntamento_giorno)
 //   WHATSAPP_LINGUA       lingua del modello (predefinita: it)
 //   WHATSAPP_VERSIONE     versione dell'API di Meta (predefinita: v23.0)
 
@@ -28,6 +32,7 @@ const configurazione = () => ({
   token: process.env.WHATSAPP_TOKEN || null,
   numeroId: process.env.WHATSAPP_NUMERO_ID || null,
   modello: process.env.WHATSAPP_MODELLO || 'conferma_appuntamento',
+  modelloGiorno: process.env.WHATSAPP_MODELLO_GIORNO || 'conferma_appuntamento_giorno',
   lingua: process.env.WHATSAPP_LINGUA || 'it',
   versione: process.env.WHATSAPP_VERSIONE || 'v23.0',
 });
@@ -54,14 +59,26 @@ export function numeroWhatsApp(telefono) {
 }
 
 /**
- * Le variabili del modello, nell'ordine in cui compaiono nel testo:
- *   {{1}} nome · {{2}} giorno · {{3}} ora · {{4}} indirizzo
+ * Quale modello e con quali variabili, nell'ordine in cui compaiono nel testo.
+ *
+ *   con l'orario:   {{1}} nome · {{2}} giorno · {{3}} ora · {{4}} indirizzo
+ *   senza orario:   {{1}} nome · {{2}} giorno
+ *
+ * Senza orario il messaggio dice il giorno e basta: niente «l'orario glielo
+ * diremo», che sarebbe una promessa da mantenere a mano.
+ *
  * Il tecnico non c'è apposta: quando Tiziana fissa l'appuntamento spesso non
  * è ancora assegnato, e una conferma con un nome sbagliato è peggio di niente.
  */
-export function variabiliConferma({ nome_cliente, data, ora, luogo_impianto }) {
-  return [nome_cliente, dataEstesa(data, { conAnno: false }), ora, luogo_impianto]
-    .map((testo) => ({ type: 'text', text: String(testo) }));
+export function messaggioConferma({ nome_cliente, data, ora, luogo_impianto }, c = configurazione()) {
+  const giorno = dataEstesa(data, { conAnno: false });
+  const valori = ora
+    ? { modello: c.modello, testi: [nome_cliente, giorno, ora, luogo_impianto] }
+    : { modello: c.modelloGiorno, testi: [nome_cliente, giorno] };
+  return {
+    modello: valori.modello,
+    variabili: valori.testi.map((testo) => ({ type: 'text', text: String(testo) })),
+  };
 }
 
 /**
@@ -80,6 +97,7 @@ export async function mandaConferma(appuntamento) {
   const a = numeroWhatsApp(appuntamento.telefono_cliente);
   if (!a) return { inviata: false, motivo: 'il numero non è un cellulare' };
 
+  const { modello, variabili } = messaggioConferma(appuntamento, c);
   try {
     const r = await fetch(`https://graph.facebook.com/${c.versione}/${c.numeroId}/messages`, {
       method: 'POST',
@@ -89,9 +107,9 @@ export async function mandaConferma(appuntamento) {
         to: a,
         type: 'template',
         template: {
-          name: c.modello,
+          name: modello,
           language: { code: c.lingua },
-          components: [{ type: 'body', parameters: variabiliConferma(appuntamento) }],
+          components: [{ type: 'body', parameters: variabili }],
         },
       }),
       signal: AbortSignal.timeout(8000),

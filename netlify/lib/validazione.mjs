@@ -78,6 +78,24 @@ export function telefonoPerChiamata(valore) {
   return n;
 }
 
+/**
+ * Un'ora facoltativa. Vuota = nessuna ora (null). Scritta male non diventa
+ * "nessuna ora": resta un errore, altrimenti un 10:15 sparirebbe in silenzio.
+ * Se c'è, deve cadere nelle fasce da 30 minuti.
+ */
+function oraFacoltativa(valore) {
+  const grezza = testo(valore);
+  if (!grezza) return { ora: null };
+  const ora = normalizzaOra(grezza);
+  if (!ora || !fasciaValida(ora)) {
+    return {
+      ora,
+      errore: `Orario non valido: usa fasce da 30 minuti fra ${FASCE[0]} e ${FASCE[FASCE.length - 1]}, oppure lascialo da concordare`,
+    };
+  }
+  return { ora };
+}
+
 /** Il messaggio d'errore per un numero di telefono, o null se va bene. */
 function controllaTelefono(numero) {
   if (!numero) return 'Campo obbligatorio';
@@ -130,12 +148,10 @@ export function validaAppuntamento(corpo, { richiediTutto = true } = {}) {
   else if (!dataValida(data)) errori.data = 'Data non valida';
   valori.data = data;
 
-  const ora = normalizzaOra(corpo?.ora);
-  if (!ora) {
-    errori.ora = 'Campo obbligatorio';
-  } else if (!fasciaValida(ora)) {
-    errori.ora = `Orario non valido: usa fasce da 30 minuti fra ${FASCE[0]} e ${FASCE[FASCE.length - 1]}`;
-  }
+  // L'ora è facoltativa: Tiziana può fissare il giorno e lasciare che
+  // l'orario lo concordino poi il tecnico e il cliente.
+  const { ora, errore: erroreOra } = oraFacoltativa(corpo?.ora);
+  if (erroreOra) errori.ora = erroreOra;
   valori.ora = ora;
 
   const note = testo(corpo?.note);
@@ -153,19 +169,16 @@ export function validaAppuntamento(corpo, { richiediTutto = true } = {}) {
   return { valori, errori };
 }
 
-/** Controlla solo data e ora: serve a "Rimanda l'appuntamento". */
+/** Controlla solo data e ora: serve a "Rimanda l'appuntamento" e a fissare l'orario. */
 export function validaSpostamento(corpo) {
   const errori = {};
   const data = testo(corpo?.data);
   if (!data) errori.data = 'Campo obbligatorio';
   else if (!dataValida(data)) errori.data = 'Data non valida';
 
-  const ora = normalizzaOra(corpo?.ora);
-  if (!ora) {
-    errori.ora = 'Campo obbligatorio';
-  } else if (!fasciaValida(ora)) {
-    errori.ora = `Orario non valido: usa fasce da 30 minuti fra ${FASCE[0]} e ${FASCE[FASCE.length - 1]}`;
-  }
+  // Anche qui l'ora si può lasciare da concordare.
+  const { ora, errore: erroreOra } = oraFacoltativa(corpo?.ora);
+  if (erroreOra) errori.ora = erroreOra;
 
   return { valori: { data, ora }, errori };
 }
@@ -198,18 +211,9 @@ export function validaRicontatto(corpo) {
   else if (!dataValida(data)) errori.data = 'Data non valida';
   valori.data = data;
 
-  // Vuoto = nessuna ora. Scritta male non diventa "nessuna ora": resta un
-  // errore, altrimenti un 10:15 sparirebbe in silenzio.
-  const grezzaOra = testo(corpo?.ora);
-  if (!grezzaOra) {
-    valori.ora = null;
-  } else {
-    const ora = normalizzaOra(grezzaOra);
-    if (!ora || !fasciaValida(ora)) {
-      errori.ora = `Orario non valido: usa fasce da 30 minuti fra ${FASCE[0]} e ${FASCE[FASCE.length - 1]}, oppure lascialo vuoto`;
-    }
-    valori.ora = ora;
-  }
+  const { ora, errore: erroreOra } = oraFacoltativa(corpo?.ora);
+  if (erroreOra) errori.ora = erroreOra;
+  valori.ora = ora;
 
   const note = testo(corpo?.note);
   if (note.length > MAX_NOTE) errori.note = 'Testo troppo lungo';

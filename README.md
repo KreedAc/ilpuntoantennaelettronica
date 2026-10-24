@@ -404,6 +404,31 @@ fissano appuntamenti anche a un anno di distanza, e sfogliare 52 settimane
 non è un modo di lavorare. Sotto i 1500 px la legenda colori sparisce per
 lasciargli posto (i blocchi dicono già da soli «Urgente» e «Fatto»).
 
+#### Interventi con l'orario da concordare
+
+L'ora di un intervento è **facoltativa**: nel modulo la prima voce è
+«Da concordare», ed è quella di partenza. Tiziana fissa il giorno, il tecnico
+concorda poi l'orario col cliente e lo mette da «Fissa l'orario» (è lo stesso
+modulo di «Rimanda», che accetta anche di togliere l'ora).
+
+- Nel **Giorno** e nella **Settimana** di Tiziana stanno in una riga
+  **«Senza ora»** sopra le fasce, sotto la colonna giusta; quelli ancora da
+  assegnare restano nella striscia «Da assegnare». Se non ce n'è nessuno la
+  riga non c'è.
+- Sul **telefono** vengono **prima** di quelli con l'ora (`ORDER BY ora NULLS
+  FIRST`), con «Da concordare» al posto dell'ora.
+- **Nessun vincolo per fascia** (per l'indice due NULL sono sempre diversi) e
+  **nessun promemoria**: «fra un'ora» non si può dire.
+- La **notifica** dice «sabato 24 ottobre, orario da concordare».
+- La **conferma su WhatsApp** usa il secondo modello, che dice solo il giorno.
+
+Il database lo permette dalla migrazione `db/migrazioni/2026-10-senza-orario.sql`.
+Se il codice arriva prima della migrazione, un intervento senza ora riceve un
+400 chiaro («manca un aggiornamento del database») e quelli con l'ora si
+salvano come sempre.
+
+#### Ricontatti
+
 La scheda **Ricontatti** contiene gli appuntamenti personali di Tiziana:
 chi richiamare e quando. Sono righe della stessa tabella con
 `tipo = 'ricontatto'`, ma un'altra cosa rispetto agli interventi:
@@ -489,26 +514,38 @@ non parte niente.
    che il negozio usa già («coexistence»): la conferma parte da lì e le
    risposte dei clienti arrivano nella solita app. Altrimenti serve un numero
    dedicato.
-3. **Il modello** da sottoporre in WhatsApp Manager → Modelli di messaggio:
-   - nome: `conferma_appuntamento` · categoria: **Utility** · lingua: **Italiano**
-   - testo:
+3. **I due modelli** da sottoporre in WhatsApp Manager → Modelli di messaggio,
+   entrambi categoria **Utility**, lingua **Italiano**. Servono due perché
+   Meta non accetta variabili vuote: se l'orario è ancora da concordare parte
+   il secondo, che dice solo il giorno.
+
+   - nome: `conferma_appuntamento` (con l'orario)
 
      > Buongiorno {{1}}, le confermiamo l'appuntamento con Il Punto Antenna
      > Elettronica per {{2}} alle ore {{3}}, in {{4}}. Per spostarlo o
      > annullarlo può rispondere a questo messaggio o chiamarci al
      > 380 283 0773.
 
-   - esempi delle variabili: `Mario Greco`, `giovedì 29 ottobre`, `10:00`,
+     esempi delle variabili: `Mario Greco`, `giovedì 29 ottobre`, `10:00`,
      `Via Roma 1, Lamezia Terme`.
 
-   L'ordine delle variabili è quello di `variabiliConferma()`: se si cambia il
-   testo, le variabili devono restare quattro e in quell'ordine.
+   - nome: `conferma_appuntamento_giorno` (senza orario)
+
+     > Buongiorno {{1}}, le confermiamo l'appuntamento con Il Punto Antenna
+     > Elettronica per {{2}}. Per spostarlo o annullarlo può rispondere a
+     > questo messaggio o chiamarci al 380 283 0773.
+
+     esempi delle variabili: `Mario Greco`, `giovedì 29 ottobre`.
+
+   L'ordine delle variabili è quello di `messaggioConferma()`: se si cambia un
+   testo, le variabili devono restare quelle e in quell'ordine.
 4. **Un token di sistema permanente** (Impostazioni business → Utenti di
    sistema) con il permesso `whatsapp_business_messaging`.
 5. Su **Netlify → Environment variables**, come «secret»:
    `WHATSAPP_TOKEN` e `WHATSAPP_NUMERO_ID` (il «Phone number ID»). Facoltative:
-   `WHATSAPP_MODELLO` (predefinito `conferma_appuntamento`), `WHATSAPP_LINGUA`
-   (`it`), `WHATSAPP_VERSIONE` (`v23.0`).
+   `WHATSAPP_MODELLO` (predefinito `conferma_appuntamento`),
+   `WHATSAPP_MODELLO_GIORNO` (predefinito `conferma_appuntamento_giorno`),
+   `WHATSAPP_LINGUA` (`it`), `WHATSAPP_VERSIONE` (`v23.0`).
 6. Nuovo deploy, e la casella compare.
 
 ### Prove nel browser

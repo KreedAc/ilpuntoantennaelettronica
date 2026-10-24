@@ -103,6 +103,18 @@ function intervalloSettimana(inizio) {
 
 const maiuscola = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 
+/**
+ * Un intervento può essere fissato per il giorno, con l'orario da concordare
+ * poi fra tecnico e cliente. Ovunque si scrive l'ora passa da qui.
+ */
+const DA_CONCORDARE = 'Da concordare';
+const quandoEsteso = (a) =>
+  `${maiuscola(dataEstesa(a.data))} · ${a.ora ? `ore ${a.ora}` : 'orario da concordare'}`;
+/** L'ora nella colonna stretta di un elenco: senza, un'etichetta piccola. */
+const oraInColonna = (a, classe = 'quando') => el('span', {
+  class: a.ora ? classe : `${classe} senza-ora`, testo: a.ora ?? DA_CONCORDARE,
+});
+
 // Mesi: stesse regole delle date, conti in UTC su stringhe "AAAA-MM".
 const meseDi = (iso) => iso.slice(0, 7);
 
@@ -492,10 +504,15 @@ function colonnaOre(quante, altezzaTotale) {
   return colonna;
 }
 
+/** Ha una fascia nella griglia? Gli altri vanno nella riga "Da concordare". */
+const conFascia = (a) => stato.config.fasce.includes(a.ora);
+
 /** Il blocco di un appuntamento dentro la griglia. */
 function blocco(appuntamento, { conIniziale = false, compatto = false, onClick }) {
   const indice = stato.config.fasce.indexOf(appuntamento.ora);
-  if (indice < 0) return null; // fascia fuori orario: non rappresentabile
+  // Senza ora (o fuori orario) non ha una fascia: quelli da concordare
+  // stanno nella riga sopra la griglia, vedi `rigaDaConcordare`.
+  if (indice < 0) return null;
 
   const classi = ['blocco'];
   if (appuntamento.urgente && !appuntamento.fatto) classi.push('urgente');
@@ -544,6 +561,43 @@ function blocco(appuntamento, { conIniziale = false, compatto = false, onClick }
   );
 }
 
+/**
+ * La riga "Da concordare" fra l'intestazione e le fasce: gli interventi del
+ * giorno che non hanno ancora un orario. Una cella per colonna, allineata
+ * alla griglia; se non ce n'è nessuno la riga non c'è.
+ */
+function rigaDaConcordare(celle, { conIniziale = false } = {}) {
+  if (celle.every((c) => c.length === 0)) return null;
+  return el('div', { class: 'riga-da-concordare' },
+    // La colonna degli orari è larga 58px: «Da concordare» non ci sta.
+    el('div', { class: 'etichetta-riga', title: 'Orario da concordare', testo: 'Senza ora' }),
+    celle.map((elenco) => el('div', { class: 'cella' },
+      elenco.map((a) => gettoneSenzaOra(a, { conIniziale })))),
+  );
+}
+
+function gettoneSenzaOra(a, { conIniziale }) {
+  const colore = a.assegnatoA === null ? null : coloreDi(a.assegnatoA);
+  const classi = ['gettone', 'senza-ora'];
+  if (a.urgente && !a.fatto) classi.push('urgente');
+  if (a.fatto) classi.push('fatto');
+  if (a.assegnatoA === null) classi.push('da-assegnare');
+  return el('button', {
+    type: 'button', class: classi.join(' '),
+    style: colore && !conIniziale ? `border-left:3px solid ${colore}` : null,
+    title: `${a.nomeCliente} · ${a.luogoImpianto} · orario da concordare` +
+           (a.urgente ? ' · Urgente' : '') + (a.fatto ? ' · Fatto' : ''),
+    onclick: (e) => apriScheda(a.id, e.currentTarget),
+  },
+    conIniziale && colore
+      ? el('span', { class: 'iniziale', style: `background:${colore}`, testo: iniziale(a.assegnatoNome) })
+      : null,
+    el('span', { class: 'nome', testo: a.nomeCliente }),
+    a.fatto ? el('span', { class: 'segno-fatto', testo: '✓', title: 'Fatto' }) : null,
+    a.urgente && !a.fatto ? el('span', { class: 'segno-urgente', testo: '!', 'aria-label': 'Urgente' }) : null,
+  );
+}
+
 function strisciaDaAssegnare(elenco, giorno) {
   const senza = daAssegnare(elenco);
   if (senza.length === 0) return null;
@@ -553,7 +607,7 @@ function strisciaDaAssegnare(elenco, giorno) {
       class: 'gettone', type: 'button',
       onclick: (e) => apriScheda(a.id, e.currentTarget),
     },
-      el('span', { class: 'ora-piccola', testo: a.ora }),
+      el('span', { class: 'ora-piccola', testo: a.ora ?? DA_CONCORDARE }),
       ` ${a.nomeCliente} · ${a.luogoImpianto}`,
     )),
   );
@@ -633,15 +687,17 @@ function vistaGiornoAdmin(giorno) {
       class: `colonna-giorno${giorno === oggi() ? ' oggi' : ''}`,
       style: `height:${altezzaTotale}`,
     });
-    for (const a of suoi) {
+    for (const a of suoi.filter(conFascia)) {
       colonna.append(blocco(a, { onClick: (app, nodo) => apriScheda(app.id, nodo) }));
     }
     corpo.append(colonna);
   }
 
+  // Quelli ancora da assegnare stanno già nella striscia in alto.
+  const senzaOra = persone.map((p) => diQuellaPersona(delGiorno, p.id).filter((a) => !a.ora));
   const agenda = el('div', {
     class: 'agenda per-persona', style: `--colonne:${persone.length}`,
-  }, intestazione, corpo);
+  }, intestazione, rigaDaConcordare(senzaOra), corpo);
 
   return el('div', {}, barraSuperiore(), strumenti,
     strisciaDaAssegnare(delGiorno, giorno),
@@ -712,6 +768,8 @@ function vistaSettimanaAdmin(inizioSettimana, chi) {
 
   const intestazione = el('div', { class: 'intestazione' }, el('div', {}));
   const corpo = el('div', { class: 'corpo' }, colonnaOre(fasce.length, altezzaTotale));
+  const senzaOra = [];
+  const conLiberi = chi === 'tutti' || !chi || soloDaAssegnare;
 
   for (let i = 0; i < 6; i += 1) {
     const giorno = piuGiorni(inizioSettimana, i);
@@ -726,6 +784,10 @@ function vistaSettimanaAdmin(inizioSettimana, chi) {
       style: `height:${altezzaTotale}`,
     });
     const delGiorno = diQuelGiorno(stato.appuntamenti, giorno);
+    // Gli stessi filtri della griglia: chi si vede lì, si vede qui.
+    senzaOra.push(delGiorno.filter((a) => !a.ora && (a.assegnatoA === null
+      ? conLiberi
+      : !soloDaAssegnare && mostrate.some((p) => p.id === a.assegnatoA))));
 
     if (!soloDaAssegnare) {
       // Ogni installatore ha la sua metà di colonna. Con un filtro attivo la
@@ -736,7 +798,7 @@ function vistaSettimanaAdmin(inizioSettimana, chi) {
           meta.style.left = `${(indice / mostrate.length) * 100}%`;
           meta.style.right = `${(1 - (indice + 1) / mostrate.length) * 100}%`;
         }
-        for (const a of diQuellaPersona(delGiorno, persona.id)) {
+        for (const a of diQuellaPersona(delGiorno, persona.id).filter(conFascia)) {
           meta.append(blocco(a, {
             conIniziale: mostrate.length > 1,
             compatto: true,
@@ -749,8 +811,8 @@ function vistaSettimanaAdmin(inizioSettimana, chi) {
 
     // I lavori ancora da assegnare attraversano tutta la colonna: devono
     // saltare all'occhio, non nascondersi in una metà.
-    if (chi === 'tutti' || !chi || soloDaAssegnare) {
-      for (const a of daAssegnare(delGiorno)) {
+    if (conLiberi) {
+      for (const a of daAssegnare(delGiorno).filter(conFascia)) {
         colonna.append(blocco(a, {
           compatto: true,
           onClick: (app, nodo) => apriScheda(app.id, nodo),
@@ -760,7 +822,8 @@ function vistaSettimanaAdmin(inizioSettimana, chi) {
     corpo.append(colonna);
   }
 
-  const agenda = el('div', { class: 'agenda', style: '--colonne:6' }, intestazione, corpo);
+  const agenda = el('div', { class: 'agenda', style: '--colonne:6' },
+    intestazione, rigaDaConcordare(senzaOra, { conIniziale: mostrate.length > 1 }), corpo);
   return el('div', {}, barraSuperiore(), strumenti,
     el('div', { class: 'agenda-contenitore' }, agenda));
 }
@@ -806,7 +869,7 @@ function voceStorico(a, { conData = false } = {}) {
   riga.append(
     el('span', { class: 'quando' },
       conData ? el('span', { class: 'giorno', testo: dataBreve(a.data) }) : null,
-      el('span', { class: 'ora', testo: a.ora }),
+      oraInColonna(a, 'ora'),
     ),
     apri,
     el('span', { class: 'quanto' },
@@ -1371,9 +1434,10 @@ function campiScheda(valori = {}) {
     el('div', { class: 'coppia' },
       campo('data', 'Data',
         el('input', { type: 'date', name: 'data', required: true, value: valori.data ?? '' })),
+      // Si può fissare solo il giorno: l'orario lo concorderà il tecnico.
       campo('ora', 'Ora',
-        el('select', { name: 'ora', required: true },
-          !valori.ora && el('option', { value: '', testo: 'Scegli…' }),
+        el('select', { name: 'ora' },
+          el('option', { value: '', selected: !valori.ora, testo: DA_CONCORDARE }),
           opzioniOra)),
     ),
 
@@ -1459,7 +1523,7 @@ function eCellulare(telefono) {
 /**
  * La casella della conferma su WhatsApp, solo nel modulo di un appuntamento
  * nuovo di Tiziana. È già spuntata: la si toglie se il cliente non vuole
- * messaggi, o se l'orario è ancora provvisorio e lo fisserà il tecnico.
+ * messaggi. Senza orario parte lo stesso, con il solo giorno.
  */
 function casellaWhatsapp(modulo) {
   const nota = el('span', { class: 'nota' });
@@ -1467,12 +1531,17 @@ function casellaWhatsapp(modulo) {
   const aggiorna = () => {
     const tel = modulo.elements.telefonoCliente.value;
     const ok = !tel.trim() || eCellulare(tel);
-    nota.textContent = ok
-      ? 'Solo se il cliente è d’accordo. Toglila se l’orario è ancora provvisorio.'
-      : 'Questo numero non è un cellulare: su WhatsApp non arriverà.';
+    // Il messaggio cambia con l'orario: con l'ora dice «alle 10:00», senza
+    // dice solo il giorno. Lo si scrive qui, così non è una sorpresa.
+    nota.textContent = !ok
+      ? 'Questo numero non è un cellulare: su WhatsApp non arriverà.'
+      : modulo.elements.ora.value
+        ? 'Solo se il cliente è d’accordo. Dirà giorno, ora e indirizzo.'
+        : 'Solo se il cliente è d’accordo. Senza orario dirà solo il giorno.';
     nota.classList.toggle('attenzione', !ok);
   };
   modulo.elements.telefonoCliente.addEventListener('input', aggiorna);
+  modulo.elements.ora.addEventListener('change', aggiorna);
   aggiorna();
   return el('label', { class: 'scelta whatsapp' },
     casella, el('span', {}, 'Manda la conferma su WhatsApp', nota));
@@ -1550,14 +1619,15 @@ async function apriScheda(id, nodo) {
     el('dt', { testo: etichetta }), el('dd', {}, valore));
 
   const moduloRimanda = posso ? el('form', { novalidate: true, class: 'riquadro-rimanda', id: 'modulo-rimanda' },
-    el('h3', { class: 'sezione-titolo', testo: 'Rimanda l’appuntamento' }),
+    el('h3', { class: 'sezione-titolo', testo: appuntamento.ora ? 'Rimanda l’appuntamento' : 'Fissa l’orario' }),
     el('div', { class: 'coppia' },
       el('label', { class: 'campo', 'data-campo': 'data' },
         el('span', { class: 'etichetta', testo: 'Nuova data' }),
         el('input', { type: 'date', name: 'data', value: appuntamento.data, required: true })),
       el('label', { class: 'campo', 'data-campo': 'ora' },
         el('span', { class: 'etichetta', testo: 'Nuova ora' }),
-        el('select', { name: 'ora', required: true },
+        el('select', { name: 'ora' },
+          el('option', { value: '', selected: !appuntamento.ora, testo: DA_CONCORDARE }),
           stato.config.fasce.map((ora) =>
             el('option', { value: ora, selected: ora === appuntamento.ora, testo: ora })))),
     ),
@@ -1572,7 +1642,7 @@ async function apriScheda(id, nodo) {
         ? el('span', { class: 'etichetta-fatto', testo: `Fatto alle ${appuntamento.fattoAlle}` }) : null,
       appuntamento.urgente ? el('span', { class: 'etichetta-urgente', testo: 'Urgente' }) : null,
     ),
-    el('p', { class: 'scheda-quando', testo: `${maiuscola(dataEstesa(appuntamento.data))} · ore ${appuntamento.ora}` }),
+    el('p', { class: 'scheda-quando', testo: quandoEsteso(appuntamento) }),
     el('dl', { class: 'righe' },
       riga('Assegnato a', assegnazione(appuntamento, posso, avviso, modificato)),
       riga('Luogo impianto', el('span', {},
@@ -1725,7 +1795,7 @@ function chiediConferma(appuntamento, dopo) {
     avviso,
     el('div', { class: 'riassunto' },
       el('strong', { testo: appuntamento.nomeCliente }),
-      el('div', { testo: `${maiuscola(dataEstesa(appuntamento.data))} · ore ${appuntamento.ora}` }),
+      el('div', { testo: quandoEsteso(appuntamento) }),
       el('div', { testo: appuntamento.luogoImpianto }),
     ),
     el('p', {
@@ -1866,7 +1936,7 @@ function vistaDaAssegnare() {
         giorno < oggi() ? el('span', { class: 'in-ritardo', testo: 'In ritardo' }) : null,
       ),
       el('ul', { class: 'elenco libero' }, elenco.map((a) => el('li', { class: `voce${a.urgente ? ' urgente' : ''}` },
-        el('span', { class: 'quando', testo: a.ora }),
+        oraInColonna(a),
         el('div', { class: 'scheda-libera' },
           el('a', {
             href: `?vista=dettaglio&id=${a.id}`,
@@ -1922,7 +1992,7 @@ function voceAppuntamento(appuntamento, { compatta = false, conPersona = false }
            `${appuntamento.urgente && !appuntamento.fatto ? ' urgente' : ''}` +
            `${appuntamento.fatto ? ' conclusa' : ''}`,
   },
-    el('span', { class: 'quando', testo: appuntamento.ora }),
+    oraInColonna(appuntamento),
     el('a', {
       href: `?vista=dettaglio&id=${appuntamento.id}`,
       onclick: (e) => { e.preventDefault(); vai({ vista: 'dettaglio', id: String(appuntamento.id) }); },
@@ -2174,7 +2244,7 @@ function vistaDettaglio(appuntamento) {
             'Prendendolo diventa tuo, e puoi concordare l’orario definitivo col cliente.')
         : null,
 
-      riquadro('Data e ora', `${maiuscola(dataEstesa(appuntamento.data))} · ore ${appuntamento.ora}`, true),
+      riquadro('Data e ora', quandoEsteso(appuntamento), true),
       riquadro('Luogo impianto', appuntamento.luogoImpianto),
 
       el('a', { class: 'chiama', href: `tel:${appuntamento.telefonoPerChiamata}` },
@@ -2194,7 +2264,7 @@ function vistaDettaglio(appuntamento) {
       posso ? el('div', { class: 'separa' }) : null,
       posso ? el('div', { class: 'riga-azioni' },
         el('button', {
-          class: 'pulsante', type: 'button', testo: 'Rimanda',
+          class: 'pulsante', type: 'button', testo: appuntamento.ora ? 'Rimanda' : 'Fissa l’orario',
           onclick: () => apriScheda(appuntamento.id),
         }),
         passa ?? sceltaPassa ?? el('span'),

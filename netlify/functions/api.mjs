@@ -197,6 +197,21 @@ function fasciaOccupata(e) {
   return e?.code === '23505' || String(e?.message ?? '').includes('una_per_fascia');
 }
 
+/**
+ * Il database rifiuta un intervento senza ora: vuol dire che la migrazione
+ * 2026-10-senza-orario.sql non è ancora stata lanciata. Meglio dirlo chiaro
+ * che rispondere 500; con l'orario scelto, intanto, si salva come prima.
+ */
+function senzaOrarioNonAncoraAmmesso(e) {
+  return e?.code === '23514' && String(e?.message ?? '').includes('ora_per_interventi');
+}
+
+const orarioAncoraObbligatorio = () => errore(
+  'Per ora l\'orario è ancora obbligatorio: manca un aggiornamento del database',
+  400,
+  { campi: { ora: 'Scegli un orario' } },
+);
+
 const occupata = (chi) => errore(
   chi ? `${chi} ha già un intervento in questa fascia` : 'Fascia già occupata',
   409,
@@ -267,10 +282,11 @@ async function notifica(titolo, appuntamento, attore, { anche = [], a = null } =
       .filter((id) => Number.isInteger(id) && id !== attore.id);
     if (destinatari.length === 0) return;
 
-    const quando = dataEstesa(appuntamento.data, { conAnno: false });
+    const giorno = dataEstesa(appuntamento.data, { conAnno: false });
+    const quando = appuntamento.ora ? `${giorno} alle ${appuntamento.ora}` : `${giorno}, orario da concordare`;
     await avvisa(destinatari, {
       titolo,
-      testo: `${quando} alle ${appuntamento.ora} · ${appuntamento.nome_cliente}` +
+      testo: `${quando} · ${appuntamento.nome_cliente}` +
              (appuntamento.urgente ? ' · Urgente' : ''),
       url: `/appuntamenti/?vista=giorno&giorno=${appuntamento.data}`,
       tag: `app-${appuntamento.id}`,
@@ -471,7 +487,7 @@ async function getAppuntamenti(url) {
     `SELECT ${SELEZIONE} ${TABELLE}
      WHERE a.stato <> 'annullato' AND a.data BETWEEN $1 AND $2
        ${soloLiberi ? "AND a.assegnato_a IS NULL AND a.stato = 'attivo'" : ''}
-     ORDER BY a.data, a.ora, a.id`,
+     ORDER BY a.data, a.ora NULLS FIRST, a.id`,
     [dal, al],
   );
   return risposta({ appuntamenti: righe.map(perIlBrowser), battito });
@@ -717,6 +733,7 @@ async function postAppuntamento(req, utente) {
     id = righe[0].id;
   } catch (e) {
     if (fasciaOccupata(e)) return occupata(null);
+    if (senzaOrarioNonAncoraAmmesso(e)) return orarioAncoraObbligatorio();
     throw e;
   }
 
@@ -772,6 +789,7 @@ async function patchAppuntamento(req, id, utente) {
     if (righe.length === 0) return errore('Appuntamento non trovato', 404);
   } catch (e) {
     if (fasciaOccupata(e)) return occupata(esistente.assegnato_nome);
+    if (senzaOrarioNonAncoraAmmesso(e)) return orarioAncoraObbligatorio();
     throw e;
   }
 
@@ -811,6 +829,7 @@ async function patchRimanda(req, id, utente) {
     if (righe.length === 0) return errore('Appuntamento non trovato', 404);
   } catch (e) {
     if (fasciaOccupata(e)) return occupata(esistente.assegnato_nome);
+    if (senzaOrarioNonAncoraAmmesso(e)) return orarioAncoraObbligatorio();
     throw e;
   }
 

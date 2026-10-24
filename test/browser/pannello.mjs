@@ -147,9 +147,10 @@ async function collega(pagina, db) {
       const nuovo = {
         id: db.prossimo++, tipo: 'intervento', nomeCliente: corpo.nomeCliente, luogoImpianto: corpo.luogoImpianto,
         telefonoCliente: corpo.telefonoCliente, telefonoPerChiamata: '+39', mappa: '', prezzoCentesimi: 0,
-        prezzoConcordato: '0,00', data: corpo.data, ora: corpo.ora, note: '', urgente: false, stato: 'attivo',
+        prezzoConcordato: '0,00', data: corpo.data, ora: corpo.ora || null, note: '', urgente: false, stato: 'attivo',
         fatto: false, fattoAlle: null, assegnatoA: admin ? (Number(corpo.assegnatoA) || null) : db.utente.id,
       };
+      nuovo.assegnatoNome = UTENTI.find((u) => u.id === nuovo.assegnatoA)?.nome ?? null;
       db.righe.push(nuovo);
       // Come l'API vera: la conferma la chiede solo Tiziana, con la casella.
       const whatsapp = admin && corpo.confermaWhatsapp === true ? (db.esitoWhatsapp ?? { inviata: true }) : null;
@@ -555,13 +556,13 @@ const apertura = (iso) => { const g = isoGiorno(iso); return g >= 6 ? giorniDa(i
 // =============================================================== WHATSAPP
 console.log('\nCONFERMA SU WHATSAPP\n');
 
-async function nuovoAppuntamento(pagina, { telefono = '333 1234567', spunta = null } = {}) {
+async function nuovoAppuntamento(pagina, { telefono = '333 1234567', spunta = null, ora = '17:00' } = {}) {
   await pagina.click('button:has-text("Nuovo appuntamento")');
   await pagina.waitForSelector('dialog.pannello[open]');
   await pagina.fill('dialog input[name="nomeCliente"]', 'Mario Greco');
   await pagina.fill('dialog input[name="luogoImpianto"]', 'Via Roma 1');
   await pagina.fill('dialog input[name="telefonoCliente"]', telefono);
-  await pagina.selectOption('dialog select[name="ora"]', '17:00');
+  if (ora !== null) await pagina.selectOption('dialog select[name="ora"]', ora);
   if (spunta !== null) await pagina.setChecked('dialog input[name="confermaWhatsapp"]', spunta);
 }
 const salvaNuovo = async (pagina) => {
@@ -584,7 +585,7 @@ const salvaNuovo = async (pagina) => {
     const casella = pagina.locator('dialog input[name="confermaWhatsapp"]');
     assert(await casella.isVisible(), 'la casella non c\'è');
     assert(await casella.isChecked(), 'non è spuntata');
-    assert(contiene(await pagina.locator('dialog .scelta.whatsapp').innerText(), 'provvisorio'), 'manca la spiegazione');
+    assert(contiene(await pagina.locator('dialog .scelta.whatsapp').innerText(), 'giorno, ora e indirizzo'), 'manca la spiegazione');
   });
 
   await prova('con un numero fisso avvisa che su WhatsApp non arriverà', async () => {
@@ -656,6 +657,114 @@ const salvaNuovo = async (pagina) => {
     await pagina.click('button:has-text("Aggiungi un intervento mio")');
     await pagina.waitForSelector('dialog.pannello[open]');
     assert((await pagina.locator('dialog input[name="confermaWhatsapp"]').count()) === 0, 'la casella c\'è anche per il tecnico');
+  });
+
+  await ctx.close();
+}
+
+// =============================================================== SENZA ORARIO
+console.log('\nINTERVENTI CON L\'ORARIO DA CONCORDARE\n');
+{
+  const db = nuovoDb();
+  db.whatsapp = true;
+  const ctx = await browser.newContext(PC);
+  const pagina = await ctx.newPage();
+  await collega(pagina, db);
+  await entra(pagina, 'tiziana');
+  await pagina.goto(`${BASE}?vista=giorno&giorno=${OGGI}`, { waitUntil: 'networkidle' });
+  await pagina.waitForSelector('.agenda .persona');
+
+  await prova('nel modulo nuovo l\'ora parte da «Da concordare», e non è obbligatoria', async () => {
+    await nuovoAppuntamento(pagina, { ora: null });
+    const ora = pagina.locator('dialog select[name="ora"]');
+    assert((await ora.inputValue()) === '', `valore: ${await ora.inputValue()}`);
+    assert(contiene(await ora.locator('option:checked').innerText(), 'Da concordare'), 'manca la voce');
+    assert(!(await ora.evaluate((s) => s.required)), 'è ancora obbligatoria');
+  });
+
+  await prova('la nota di WhatsApp dice che partirà solo il giorno', async () => {
+    const nota = () => pagina.locator('dialog .scelta.whatsapp .nota').innerText();
+    assert(contiene(await nota(), 'solo il giorno'), await nota());
+    await pagina.selectOption('dialog select[name="ora"]', '10:30');
+    assert(contiene(await nota(), 'giorno, ora e indirizzo'), await nota());
+    await pagina.selectOption('dialog select[name="ora"]', '');
+    assert(contiene(await nota(), 'solo il giorno'), await nota());
+  });
+
+  await prova('salvato senza ora, finisce nella riga «Da concordare» di Michele', async () => {
+    await pagina.selectOption('dialog select[name="assegnatoA"]', '2');
+    await salvaNuovo(pagina);
+    assert(db.ultimoNuovo.ora === '', `ora mandata: ${JSON.stringify(db.ultimoNuovo.ora)}`);
+    await pagina.waitForSelector('.riga-da-concordare .gettone');
+    const celle = await pagina.locator('.riga-da-concordare .cella').allInnerTexts();
+    const persone = await pagina.locator('.agenda .intestazione .persona .nome').allInnerTexts();
+    const diMichele = celle[persone.indexOf('Michele')];
+    assert(contiene(diMichele ?? '', 'Mario Greco'), `celle: ${JSON.stringify(celle)}, persone: ${persone}`);
+    assert(contiene(await pagina.locator('.avviso.esito').innerText(), 'Conferma WhatsApp inviata'), 'nessun esito');
+  });
+
+  if (SCATTI) await pagina.screenshot({ path: `${SCATTI}/da-concordare-giorno.png` });
+
+  await prova('in tutta l\'agenda non compare mai «null»', async () => {
+    assert(!/\bnull\b/.test(await pagina.locator('.agenda').innerText()), 'c\'è un null in pagina');
+  });
+
+  await prova('la scheda dice «orario da concordare» e offre «Fissa l\'orario»', async () => {
+    await pagina.click('.riga-da-concordare .gettone:has-text("Mario Greco")');
+    await pagina.waitForSelector('dialog.pannello[open]');
+    const testo = await pagina.locator('dialog').innerText();
+    assert(contiene(testo, 'orario da concordare'), testo.slice(0, 200));
+    assert(contiene(testo, 'Fissa l\'orario'), 'manca il titolo');
+    assert((await pagina.locator('#modulo-rimanda select[name="ora"]').inputValue()) === '', 'l\'ora non parte vuota');
+    await pagina.keyboard.press('Escape');
+    await pagina.waitForSelector('dialog.pannello', { state: 'detached' });
+  });
+
+  await prova('anche nella Settimana, sotto il giorno giusto', async () => {
+    await pagina.click('.scelta-vista button:has-text("Settimana")');
+    await pagina.waitForSelector('.agenda .intestazione .sigla');
+    const celle = await pagina.locator('.riga-da-concordare .cella').allInnerTexts();
+    const indice = isoGiorno(OGGI) - 1;
+    if (SCATTI) await pagina.screenshot({ path: `${SCATTI}/da-concordare-settimana.png` });
+    if (indice > 5) return; // domenica: la settimana mostrata non contiene oggi
+    assert(contiene(celle[indice] ?? '', 'Mario Greco'), JSON.stringify(celle));
+  });
+
+  await prova('senza nessuno da concordare la riga non c\'è', async () => {
+    db.righe = db.righe.filter((r) => r.ora !== null);
+    await pagina.goto(`${BASE}?vista=giorno&giorno=${OGGI}`, { waitUntil: 'networkidle' });
+    await pagina.waitForSelector('.agenda .persona');
+    assert((await pagina.locator('.riga-da-concordare').count()) === 0, 'la riga è rimasta');
+  });
+
+  await ctx.close();
+}
+
+{
+  const db = nuovoDb();
+  db.righe.push({ ...db.righe[0], id: 9, nomeCliente: 'Pino Gigliotti', ora: null });
+  const ctx = await browser.newContext(TELEFONO);
+  const pagina = await ctx.newPage();
+  await collega(pagina, db);
+  await entra(pagina, 'michele');
+
+  await prova('sul telefono di Michele: «Da concordare» al posto dell\'ora', async () => {
+    const voce = pagina.locator('.voce:has-text("Pino Gigliotti") .quando');
+    assert(contiene(await voce.innerText(), 'Da concordare'), await voce.innerText());
+    assert(!/\bnull\b/.test(await pagina.locator('.app-installatore').innerText()), 'c\'è un null');
+  });
+
+  if (SCATTI) await pagina.screenshot({ path: `${SCATTI}/da-concordare-telefono.png`, fullPage: true });
+
+  await prova('il dettaglio dice «orario da concordare» e il bottone è «Fissa l\'orario»', async () => {
+    await pagina.click('.voce:has-text("Pino Gigliotti") a');
+    await pagina.waitForSelector('button:has-text("Fissa l’orario")');
+    assert(contiene(await pagina.locator('body').innerText(), 'orario da concordare'), 'manca');
+  });
+
+  await prova('sul telefono la pagina non scappa di lato', async () => {
+    const largo = await pagina.evaluate(() => document.documentElement.scrollWidth);
+    assert(largo <= 390, `larga ${largo}px`);
   });
 
   await ctx.close();

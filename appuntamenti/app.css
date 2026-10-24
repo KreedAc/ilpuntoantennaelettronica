@@ -480,6 +480,68 @@ h1, h2, h3 { margin: 0; font-weight: 600; letter-spacing: -0.01em; }
 .gettone:hover { background: var(--fondo); }
 .gettone .ora-piccola { font-weight: 700; }
 
+/* Riga "Da concordare" fra l'intestazione e le fasce: gli interventi del
+   giorno che hanno la data ma non ancora un orario. Stesse colonne della
+   griglia, così ognuno sta sotto la persona o il giorno giusto. */
+.agenda .riga-da-concordare {
+  display: grid;
+  grid-template-columns: var(--ore) repeat(var(--colonne), minmax(0, 1fr));
+  border-bottom: 1px solid var(--linea);
+  background: var(--fondo);
+}
+.riga-da-concordare .etichetta-riga {
+  padding: 0.45rem 0.4rem 0.45rem 0.25rem;
+  font-size: 9.5px;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  text-align: right;
+  color: var(--testo-secondario);
+}
+.riga-da-concordare .cella {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  min-width: 0;
+  padding: 0.35rem;
+  border-left: 1px solid var(--linea-leggera);
+}
+.gettone.senza-ora {
+  width: 100%;
+  min-height: 30px;
+  padding: 0 0.5rem;
+  border-style: solid;
+  border-color: var(--linea);
+  font-size: 12px;
+  font-weight: 600;
+  text-align: left;
+}
+.gettone.senza-ora.da-assegnare { border-style: dashed; border-color: var(--bordo-campo); }
+.gettone.senza-ora.urgente { background: var(--urgente-fondo); border-color: var(--urgente-bordo); }
+.gettone.senza-ora.fatto .nome { text-decoration: line-through; color: var(--testo-secondario); }
+.gettone.senza-ora .nome { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.gettone.senza-ora .iniziale {
+  flex: none;
+  width: 15px; height: 15px;
+  border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 9px; font-weight: 700; color: #fff;
+}
+.gettone.senza-ora .segno-urgente { color: var(--urgente-testo); font-weight: 700; }
+
+/* Negli elenchi, al posto dell'ora: un'etichetta piccola su due righe. */
+.voce .quando.senza-ora,
+.giorno-gruppo .compatta .quando.senza-ora,
+.voce.storica .quando .ora.senza-ora {
+  font-size: 9.5px;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: 0;
+  text-transform: uppercase;
+  color: var(--testo-secondario);
+}
+
 /* ------------------------------------------------------------------ */
 /* Agenda settimanale                                                  */
 /* ------------------------------------------------------------------ */

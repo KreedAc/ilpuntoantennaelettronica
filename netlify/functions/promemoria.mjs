@@ -68,8 +68,10 @@ async function primaVolta(chiave) {
  * assegnare: non c'è nessuno da avvisare.
  */
 async function inArrivo() {
-  // I ricontatti senza ora qui non entrano da soli: `data + NULL` è NULL, e
-  // il confronto lo scarta. Hanno la loro domanda, `daRichiamareOggi`.
+  // Quello che non ha un'ora qui non entra da solo: `data + NULL` è NULL, e
+  // il confronto lo scarta. I ricontatti senza ora hanno la loro domanda,
+  // `daRichiamareOggi`; gli interventi con l'orario ancora da concordare non
+  // hanno promemoria, perché «fra un'ora» non si può dire.
   return await sql().query(
     `SELECT
        a.id,

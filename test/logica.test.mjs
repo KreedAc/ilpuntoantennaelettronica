@@ -171,11 +171,30 @@ describe('scheda cliente', () => {
 
   test('i campi obbligatori sono obbligatori', () => {
     const { errori } = validaAppuntamento({});
-    for (const campo of ['nomeCliente', 'luogoImpianto', 'telefonoCliente', 'data', 'ora']) {
+    for (const campo of ['nomeCliente', 'luogoImpianto', 'telefonoCliente', 'data']) {
       assert.ok(errori[campo], `manca la segnalazione su ${campo}`);
     }
     assert.ok(!errori.note, 'le note sono facoltative');
     assert.ok(!errori.prezzoConcordato, 'anche il prezzo è facoltativo');
+    assert.ok(!errori.ora, 'e l\'orario si può lasciare da concordare');
+  });
+
+  test('senza orario: fissato per il giorno, ora null', () => {
+    // Tiziana fissa il giorno e l'orario lo concordano tecnico e cliente.
+    for (const vuoto of ['', '  ', undefined, null]) {
+      const { valori, errori } = validaAppuntamento({ ...buona, ora: vuoto });
+      assert.deepEqual(errori, {}, `rifiutato con ${JSON.stringify(vuoto)}`);
+      assert.equal(valori.ora, null);
+    }
+    // Rimandare senza scegliere l'ora vale lo stesso.
+    assert.deepEqual(validaSpostamento({ data: '2026-09-22', ora: '' }), {
+      valori: { data: '2026-09-22', ora: null }, errori: {},
+    });
+  });
+
+  test('ma un orario scritto male non diventa "da concordare"', () => {
+    assert.ok(validaAppuntamento({ ...buona, ora: 'dieci' }).errori.ora);
+    assert.ok(validaSpostamento({ data: '2026-09-22', ora: '10:15' }).errori.ora);
   });
 
   test('il prezzo si può lasciare in bianco, e vale zero', () => {
@@ -548,9 +567,28 @@ describe('conferma su WhatsApp', async () => {
     assert.equal(wa.numeroWhatsApp('+41 79 123 45 67'), '41791234567', 'un estero lo lascia decidere a WhatsApp');
   });
 
-  test('le variabili del modello, nell\'ordine del testo', () => {
-    assert.deepEqual(wa.variabiliConferma(appuntamento).map((v) => v.text),
+  test('con l\'orario: il modello completo, variabili nell\'ordine del testo', () => {
+    const m = wa.messaggioConferma(appuntamento);
+    assert.equal(m.modello, 'conferma_appuntamento');
+    assert.deepEqual(m.variabili.map((v) => v.text),
       ['Mario Greco', 'giovedì 29 ottobre', '10:00', 'Via Roma 1, Lamezia Terme']);
+  });
+
+  test('senza orario: il modello col giorno e basta', () => {
+    const m = wa.messaggioConferma({ ...appuntamento, ora: null });
+    assert.equal(m.modello, 'conferma_appuntamento_giorno');
+    assert.deepEqual(m.variabili.map((v) => v.text), ['Mario Greco', 'giovedì 29 ottobre']);
+    assert.ok(!m.variabili.some((v) => v.text === 'null'), 'una variabile "null" arriverebbe al cliente');
+  });
+
+  test('senza orario manda il secondo modello, con due variabili', async () => {
+    let corpo;
+    await conChiavi(() => conFetch(async (url, opzioni) => {
+      corpo = JSON.parse(opzioni.body);
+      return new Response('{}', { status: 200 });
+    }, () => wa.mandaConferma({ ...appuntamento, ora: null })));
+    assert.equal(corpo.template.name, 'conferma_appuntamento_giorno');
+    assert.equal(corpo.template.components[0].parameters.length, 2);
   });
 
   test('manda il modello giusto al numero giusto', async () => {
